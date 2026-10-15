@@ -21,3 +21,4 @@ Before writing any code touching Expo, EAS, or React Native APIs:
 - [Quality Commands & Diagnostics](.agent-rules/quality-and-commands.md)
 - [State Management & Data](.agent-rules/state-and-data.md)
 - [Testing & TDD Workflows](.agent-rules/testing-and-tdd.md)
+- [Debugging](.agent-rules/debugging.md)

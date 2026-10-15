@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.23",
     "buffer": "^6.0.3",
+    "eslint-config-expo": "~57.0.2",
     "expo": "~57.0.28",
     "expo-constants": "~57.0.21",
     "expo-dev-client": "~57.0.20",
@@ -33,6 +34,11 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-native": "^5.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
     "typescript": "~6.0.3"
   },
@@ -42,7 +48,18 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "type-check": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml}": [
+      "prettier --write"
+    ]
   },
   "private": true
 }

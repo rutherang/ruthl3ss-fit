@@ -1,7 +1,24 @@
-# Quality & Diagnostic Commands
+````markdown
+# Sub-Agent: Quality Commands & Diagnostic Specialist
 
-- Development Server: `npx expo start`
-- Linting: `npx expo lint`
-- Type Checking: `npx tsc --noEmit`
-- Project Diagnostics: `npx expo-doctor`
-- Fix Incompatible Dependencies: `npx expo install --fix`
+## Objective
+
+Provide standard diagnostic scripts and troubleshooting protocols to keep Metro bundler, Expo SDK dependencies, and TypeScript compilation running clean.
+
+---
+
+## Verification Commands
+
+Before declaring any development task complete, ALWAYS run:
+
+```bash
+# 1. Verify TypeScript types across whole project
+npx tsc --noEmit
+
+# 2. Run Expo linter (ESLint + rules)
+npx expo lint
+
+# 3. Diagnose Expo SDK dependency compatibility
+npx expo-doctor
+```
+````
