@@ -1,98 +1,82 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useKeepAwake } from 'expo-keep-awake';
+import { useEffect, useRef, useState } from 'react';
+import { Button, ScrollView, Text } from 'react-native';
+import { BleManager, Device } from 'react-native-ble-plx';
+import { MAX_KMH, MIN_KMH, Treadmill, TreadmillData } from '../ble/treadmill';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function Home() {
+  useKeepAwake();
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+  const manager = useRef(new BleManager()).current;
+  const treadmill = useRef(new Treadmill(manager)).current;
+  const [found, setFound] = useState<Device[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [data, setData] = useState<TreadmillData>({});
+  const [target, setTarget] = useState(2.0);
+  const [log, setLog] = useState<string[]>([]);
+  const addLog = (m: string) => setLog((l) => [...l.slice(-40), m]);
+  const run = (p: Promise<unknown>) => p.catch((e) => addLog(`error: ${e.message}`));
+
+  useEffect(
+    () => () => {
+      treadmill.disconnect(true);
+      manager.destroy();
+    },
+    [],
+  );
+
+  const scan = () => {
+    setFound([]);
+    run(treadmill.scan((d) => setFound((p) => (p.find((x) => x.id === d.id) ? p : [...p, d]))));
+  };
+
+  const connect = (d: Device) =>
+    run(
+      treadmill
+        .connect(d.id, setData, addLog, () => {
+          setConnected(false);
+          addLog('Disconnected');
+        })
+        .then(() => setConnected(true)),
     );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
+  const changeSpeed = (delta: number) => {
+    const next = Math.min(MAX_KMH, Math.max(MIN_KMH, +(target + delta).toFixed(1)));
+    setTarget(next);
+    run(treadmill.setSpeed(next));
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, gap: 8 }}>
+      {!connected ? (
+        <>
+          <Button title="Scan for treadmill" onPress={scan} />
+          {found.map((d) => (
+            <Button key={d.id} title={`${d.name} (${d.rssi})`} onPress={() => connect(d)} />
+          ))}
+        </>
+      ) : (
+        <>
+          <Text style={{ fontSize: 40, fontWeight: '700' }}>{data.speedKmh?.toFixed(1) ?? '--'} km/h</Text>
+          <Text>Distance: {data.distanceM ?? '--'} m</Text>
+          <Text>Time: {data.elapsedS ?? '--'} s</Text>
+          <Text>Incline: {data.inclinePct ?? '--'} %</Text>
+          <Text>Calories: {data.kcal ?? '--'} kcal</Text>
+          <Text>Heart rate: {data.heartRate ?? '--'} bpm</Text>
+
+          <Button title="Start" onPress={() => run(treadmill.start())} />
+          <Text>Target speed: {target.toFixed(1)} km/h</Text>
+          <Button title="Speed +0.5" onPress={() => changeSpeed(0.5)} />
+          <Button title="Speed -0.5" onPress={() => changeSpeed(-0.5)} />
+          <Button title="STOP" color="red" onPress={() => run(treadmill.stop())} />
+          <Button title="End workout" onPress={() => run(treadmill.disconnect(true))} />
+        </>
+      )}
+      {log.map((l, i) => (
+        <Text key={i} style={{ fontSize: 11 }}>
+          {l}
+        </Text>
+      ))}
+    </ScrollView>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});

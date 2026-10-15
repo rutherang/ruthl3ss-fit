@@ -41,3 +41,29 @@ example
 # generated native folders
 /ios
 /android
+
+# plain env files (yours only ignores .env*.local)
+.env
+
+# build outputs downloaded from EAS
+*.apk
+*.aab
+*.ipa
+
+# EAS credentials, if you ever download them
+credentials.json
+
+# Windows
+Thumbs.db# plain env files (yours only ignores .env*.local)
+.env
+
+# build outputs downloaded from EAS
+*.apk
+*.aab
+*.ipa
+
+# EAS credentials, if you ever download them
+credentials.json
+
+# Windows
+Thumbs.db
