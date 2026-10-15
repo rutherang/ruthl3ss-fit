@@ -1,0 +1,70 @@
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { ScrollView, Text, useColorScheme } from 'react-native';
+import { bleManager } from '../ble/manager';
+import { ScaleReading, startScaleListener } from '../ble/scale';
+
+const HEIGHT_CM = 152; // change to your height
+
+export default function ScalePage() {
+  const fg = useColorScheme() === 'dark' ? '#fff' : '#000';
+  const [live, setLive] = useState<ScaleReading | null>(null);
+  const [history, setHistory] = useState<ScaleReading[]>([]);
+  const [error, setError] = useState('');
+  const sawMeasuring = useRef(false);
+  const saved = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      startScaleListener(bleManager, (r) => {
+        setLive(r);
+        if (!r.final) {
+          sawMeasuring.current = true;
+          saved.current = false;
+        } else if (sawMeasuring.current && !saved.current) {
+          saved.current = true;
+          setHistory((h) => [r, ...h]);
+        }
+      }).catch((e) => setError(e.message));
+
+      return () => {
+        bleManager.stopDeviceScan();
+      };
+    }, []),
+  );
+
+  const bmi = live ? live.weightKg / (HEIGHT_CM / 100) ** 2 : null;
+  const status = !live
+    ? 'Step on the scale'
+    : !live.final
+      ? 'Measuring...'
+      : sawMeasuring.current
+        ? 'Final reading'
+        : 'Last reading (may be old)';
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, gap: 8 }}>
+      <Text style={{ fontSize: 24, fontWeight: '700', color: fg }}>Scale</Text>
+      {!!error && <Text style={{ color: 'red' }}>{error}</Text>}
+      <Text style={{ fontSize: 48, fontWeight: '700', color: fg }}>
+        {live ? live.weightKg.toFixed(2) : '--'} kg
+      </Text>
+      <Text style={{ color: fg }}>{status}</Text>
+      <Text style={{ color: fg }}>BMI: {bmi ? bmi.toFixed(1) : '--'}</Text>
+
+      <Text
+        style={{ fontSize: 18, fontWeight: '600', marginTop: 16, color: fg }}
+      >
+        This session
+      </Text>
+      {history.length === 0 && (
+        <Text style={{ color: fg }}>No weigh-ins yet</Text>
+      )}
+      {history.map((h, i) => (
+        <Text key={i} style={{ color: fg }}>
+          {new Date(h.at).toLocaleTimeString()} {h.weightKg.toFixed(2)} kg
+        </Text>
+      ))}
+    </ScrollView>
+  );
+}
