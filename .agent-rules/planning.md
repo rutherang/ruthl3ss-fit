@@ -8,10 +8,12 @@ Enforce a "Plan First, Code Second" execution workflow for mobile app features. 
 
 ## Planning Protocol
 
-1. Create or update `docs/plans/<feature-name>.md` using the template below.
-2. Define mobile-specific architectural details: Expo Router screens, Zustand UI state, TanStack Query fetchers, Native Modules, and Zod schema contracts.
-3. Classify all test requirements into **TDD** (logic/hooks/stores) or **Test-After** (mobile layouts/animations).
-4. Request explicit user review before generating feature code.
+1. Create new feature plans using the ISO date format:
+   `docs/plans/YYYY-MM-DD-<feature-name>.md`
+   (e.g., `docs/plans/2026-10-15-user-onboarding.md`)
+2. Define mobile architecture, Expo Router paths, state boundaries, and TDD/Test-After targets.
+3. Request user review before generating feature code.
+4. **Post-Execution Cleanup:** Upon completing all tasks, move the plan file from `docs/plans/` to `docs/plans/archive/`.
 
 ---
 

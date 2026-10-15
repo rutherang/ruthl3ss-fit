@@ -1,24 +1,22 @@
-# Expo / React Native App
+# React Native / Expo Development Guardrails
 
-Cross-platform mobile application using Expo and TypeScript.
+## Core Execution Guidelines
 
-## Critical Pre-Task Protocol
+- **Package Manager:** ALWAYS use `npx expo install <package>` to guarantee Expo SDK version compatibility.
+- **UI Framework & Primitives:** ALWAYS use React Native UI components (`View`, `Text`, `Pressable`, `FlatList`, `Image`), UI libraries (e.g., React Native Paper), or NativeWind classes (`className="..."`). **NEVER write Web/HTML elements (`div`, `span`, `button`, `p`, `a`).**
+- **Path Aliases:** ALWAYS use `@/*` for internal project imports (e.g., `@/components/Button`, `@/hooks/useAuth`).
+- **Feature Planning:** ALWAYS create an active feature plan at `docs/plans/YYYY-MM-DD-<feature-name>.md` before writing implementation code. Upon feature completion, move the completed plan file to `docs/plans/archive/`.
+- **Post-Task Verification:** ALWAYS run `npx expo lint` and `npx tsc --noEmit` before declaring any task complete.
 
-Before writing any code touching Expo, EAS, or React Native APIs:
+---
 
-1. Read the major SDK version of `expo` in `package.json`.
-2. Retrieve the versioned docs index at `https://docs.expo.dev/llms.txt` and follow relevant links. Do not write code from memory.
+## Specialized Mobile Sub-Agent Rules
 
-## Core Execution Rules
-
-- ALWAYS install dependencies using `npx expo install <package>` to guarantee SDK version compatibility.
-- ALWAYS run `npx expo lint` and `npx tsc --noEmit` before declaring any task complete.
-
-## Specialized Rules
-
-- [Navigation & Routing](.agent-rules/navigation.md)
+- [Feature & Test Planner](.agent-rules/planning.md)
+- [UI, Styling & Design System](.agent-rules/ui-and-design.md)
+- [Expo Navigation & Routing](.agent-rules/navigation.md)
 - [EAS & Native Builds](.agent-rules/builds-and-eas.md)
 - [Quality Commands & Diagnostics](.agent-rules/quality-and-commands.md)
-- [State Management & Data](.agent-rules/state-and-data.md)
-- [Testing & TDD Workflows](.agent-rules/testing-and-tdd.md)
-- [Debugging](.agent-rules/debugging.md)
+- [Mobile State & Data Persistence](.agent-rules/state-and-data.md)
+- [React Native Testing & TDD](.agent-rules/testing-and-tdd.md)
+- [Mobile Debugging & Diagnostics](.agent-rules/debugging.md)
