@@ -1,0 +1,22 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit quality gates..."
+
+# 1. Type check the entire codebase
+echo "➡️  Checking TypeScript types..."
+npx tsc --noEmit
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript error(s) found. Commit aborted."
+  exit 1
+fi
+
+# 2. Run lint-staged on modified/staged files
+echo "➡️  Running ESLint & Prettier on staged files..."
+npx lint-staged
+if [ $? -ne 0 ]; then
+  echo "❌ Linting or formatting error(s) found. Commit aborted."
+  exit 1
+fi
+
+echo "✅ All checks passed!"
