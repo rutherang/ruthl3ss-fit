@@ -1,3 +1,5 @@
+import { saveWorkout } from '@/google/sheets';
+import { useGoogleAccount } from '@/google/useAccount';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
 import { Button, ScrollView } from 'react-native';
@@ -30,7 +32,30 @@ export default function Home() {
   const [target, setTarget] = useState(2.0);
   const [log, setLog] = useState<string[]>([]);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const [live, setLive] = useState<WorkoutSummary | null>(null);
   const recorder = useRef<WorkoutRecorder | null>(null);
+  const account = useGoogleAccount();
+  const signedIn = useRef(false);
+  const [saveState, setSaveState] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle');
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    signedIn.current = account.email !== null;
+  }, [account.email]);
+
+  const save = async (s: WorkoutSummary) => {
+    setSaveState('saving');
+    setSaveError('');
+    try {
+      await saveWorkout(s);
+      setSaveState('saved');
+    } catch (e: any) {
+      setSaveError(e.message);
+      setSaveState('error');
+    }
+  };
 
   const addLog = (m: string) => setLog((l) => [...l.slice(-40), m]);
   const run = (p: Promise<unknown>) =>
@@ -46,21 +71,30 @@ export default function Home() {
   );
 
   const finishWorkout = () => {
-    if (recorder.current) {
-      setSummary(recorder.current.summarize());
-      recorder.current = null;
-    }
+    const rec = recorder.current;
+    if (!rec) return;
+    recorder.current = null;
+    const s = rec.summarize();
+    setSummary(s);
+    setLive(s);
+    setSaveState('idle');
+    if (s && signedIn.current) save(s);
   };
 
   const handleData = (d: TreadmillData) => {
     setData(d);
-    recorder.current?.push(d);
+    const rec = recorder.current;
+    if (rec) {
+      rec.push(d);
+      setLive(rec.summarize());
+    }
   };
 
   const handleStatus = (e: TreadmillEvent) => {
     addLog(`status: ${e}`);
     if (e === 'started' && !recorder.current) {
       setSummary(null);
+      setLive(null);
       recorder.current = new WorkoutRecorder(HEIGHT_CM);
     }
     if (e === 'stopped' || e === 'safety-key') finishWorkout();
@@ -102,10 +136,21 @@ export default function Home() {
     run(treadmill.setSpeed(next));
   };
 
-  const live = recorder.current?.summarize() ?? null;
-
   return (
     <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, gap: 8 }}>
+      <Text>
+        {account.email ? `Google: ${account.email}` : 'Not signed in to Google'}
+      </Text>
+      {account.email ? (
+        <Button title="Sign out" onPress={account.signOut} />
+      ) : (
+        <Button
+          title="Sign in with Google"
+          onPress={account.signIn}
+          disabled={account.busy}
+        />
+      )}
+      {!!account.error && <Text style={{ color: 'red' }}>{account.error}</Text>}
       {!connected ? (
         <>
           <Button title="Scan for treadmill" onPress={scan} />
@@ -167,6 +212,21 @@ export default function Home() {
               {fmtPace(g.paceMinPerKm)}, ~{g.steps} steps
             </Text>
           ))}
+          <Text>
+            {saveState === 'saving' && 'Saving to Google Sheets...'}
+            {saveState === 'saved' && 'Saved to your Google Sheet ✓'}
+            {saveState === 'error' && `Save failed: ${saveError}`}
+            {saveState === 'idle' &&
+              !account.email &&
+              'Sign in to save this workout'}
+          </Text>
+          {(saveState === 'error' ||
+            (saveState === 'idle' && account.email)) && (
+            <Button
+              title="Save to Google Sheets"
+              onPress={() => save(summary)}
+            />
+          )}
         </>
       )}
 

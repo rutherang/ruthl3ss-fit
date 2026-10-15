@@ -70,6 +70,15 @@ export class WorkoutRecorder {
       last = undefined;
     }
     if (last && d.elapsedS === last.t) return; // at most one sample a second
+
+    this.samples.push({
+      t: d.elapsedS,
+      kmh: d.speedKmh,
+      m: d.distanceM,
+      kcal: d.kcal ?? last?.kcal ?? 0,
+      incline: d.inclinePct ?? last?.incline ?? 0,
+      hr: d.heartRate ?? last?.hr ?? 0,
+    });
   }
 
   summarize(): WorkoutSummary | null {
