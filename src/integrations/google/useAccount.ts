@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as auth from './auth';
+import { resetDriveCache } from './drive';
 import { resetSheetCache } from './sheets';
 
 export function useGoogleAccount() {
@@ -29,6 +30,7 @@ export function useGoogleAccount() {
   const signOut = useCallback(async () => {
     await auth.signOut();
     resetSheetCache(); // the next account gets its own sheet
+    resetDriveCache();
     setEmail(null);
   }, []);
 

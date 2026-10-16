@@ -1,3 +1,4 @@
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getAccessToken } from './auth';
 
 const FOLDER_NAME = 'Ruthl3ssFit';
@@ -14,8 +15,7 @@ async function api(url: string, init: RequestInit = {}, retry = true) {
     },
   });
   if (res.status === 401 && retry) {
-    // Note: GoogleSignin.clearCachedAccessToken needs to be imported
-    // For now, we'll rely on the auth module to handle token refresh
+    await GoogleSignin.clearCachedAccessToken(token);
     return api(url, init, false);
   }
   if (!res.ok) {
@@ -24,19 +24,26 @@ async function api(url: string, init: RequestInit = {}, retry = true) {
   return res.json();
 }
 
-async function findOrCreateFolder(): Promise<string> {
-  const q = encodeURIComponent(
-    `name='${FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`,
-  );
+export async function findFile(name: string, mimeType: string): Promise<string | null> {
+  const q = encodeURIComponent(`name='${name}' and mimeType='${mimeType}' and trashed=false`);
   const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}` + `&orderBy=createdTime&fields=files(id)`,
+    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime&fields=files(id)`,
   );
-  if (found.files?.length) return found.files[0].id as string;
+  return found.files?.[0]?.id ?? null;
+}
+
+async function findOrCreateFolder(): Promise<string> {
+  const folderId = await findFile(FOLDER_NAME, FOLDER_MIME);
+  if (folderId) return folderId;
   const created = await api('https://www.googleapis.com/drive/v3/files?fields=id', {
     method: 'POST',
     body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
   });
   return created.id as string;
+}
+
+export function resetDriveCache() {
+  folderPending = null;
 }
 
 export function ensureFolder(): Promise<string> {

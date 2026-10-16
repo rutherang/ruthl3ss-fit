@@ -1,8 +1,9 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getAccessToken } from './auth';
-import { ensureFolder, moveToFolder } from './drive';
+import { ensureFolder, findFile, moveToFolder } from './drive';
 
 const SHEET_NAME = 'Ruthl3ssFit';
+const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
 let pending: Promise<string> | null = null;
 const done = new Set<string>();
 
@@ -72,17 +73,10 @@ async function api(url: string, init: RequestInit = {}, retry = true) {
 
 async function findOrCreate(): Promise<string> {
   const folderId = await ensureFolder();
-  const q = encodeURIComponent(
-    `name='${SHEET_NAME}' and trashed=false and ` +
-      `mimeType='application/vnd.google-apps.spreadsheet'`,
-  );
-  const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}` + `&orderBy=createdTime&fields=files(id)`,
-  );
-  if (found.files?.length) {
-    const id = found.files[0].id as string;
-    await moveToFolder(id, folderId); // moves your existing test sheet too
-    return id;
+  const existingId = await findFile(SHEET_NAME, SPREADSHEET_MIME);
+  if (existingId) {
+    await moveToFolder(existingId, folderId); // moves your existing test sheet too
+    return existingId;
   }
 
   const created = await api('https://sheets.googleapis.com/v4/spreadsheets', {
