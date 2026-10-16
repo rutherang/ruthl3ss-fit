@@ -41,6 +41,7 @@ it('shows cached profiles and lets the user select one as active', async () => {
   const screen = await render(<ProfilesScreen />);
 
   expect(screen.getByText('Test Runner')).toBeTruthy();
+  expect(screen.getByLabelText("Test Runner's generated avatar, TR")).toBeTruthy();
   await fireEvent.press(screen.getByText('Use profile'));
 
   expect(mockSetActiveProfile).toHaveBeenCalledWith('profile-1');

@@ -1,20 +1,26 @@
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Button, Modal, Text, TextInput } from 'react-native-paper';
-import { useActiveProfile } from '@/features/profiles/hooks/useActiveProfile';
+import type { Profile } from '@/types/profile';
+import { ProfileAvatar } from './ProfileAvatar';
 
 type ProfilePickerProps = {
+  profiles: Profile[];
+  loading: boolean;
+  error: string | null;
   onProfileSelect: (profileId: string) => void;
   onProfileCancel?: () => void;
   title?: string;
 };
 
 export default function ProfilePicker({
+  profiles,
+  loading,
+  error,
   onProfileSelect,
   onProfileCancel,
   title = 'Select Profile',
 }: ProfilePickerProps) {
-  const { profiles, loading, error } = useActiveProfile();
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const cancelNotified = useRef(false);
@@ -85,8 +91,11 @@ export default function ProfilePicker({
                 }}
                 style={({ pressed }) => [styles.profileItem, pressed && styles.pressed]}
               >
-                <Text variant="bodyLarge">{item.name}</Text>
-                <Text variant="bodySmall">{item.id}</Text>
+                <ProfileAvatar name={item.name} seed={item.id} size={40} />
+                <View style={styles.profileLabels}>
+                  <Text variant="bodyLarge">{item.name}</Text>
+                  <Text variant="bodySmall">{item.id}</Text>
+                </View>
               </Pressable>
             )}
           />
@@ -110,7 +119,15 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   profilesList: { flexGrow: 0 },
-  profileItem: { borderBottomColor: '#eee', borderBottomWidth: 1, gap: 4, padding: 12 },
+  profileItem: {
+    alignItems: 'center',
+    borderBottomColor: '#eee',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+  },
+  profileLabels: { flex: 1, gap: 4 },
   pressed: { opacity: 0.65 },
   error: { color: '#c62828' },
 });

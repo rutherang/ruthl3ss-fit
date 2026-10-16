@@ -3,9 +3,10 @@ import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { startScaleListener } from '@/integrations/ble/scale';
-import { ageFromBirthDate } from '@/features/profiles/domain/age';
 import { useScaleSession } from '../hooks/useScaleSession';
 import { useActiveProfile } from '@/features/profiles/hooks/useActiveProfile';
+import { profileMeasurements } from '@/features/profiles/domain/profileMeasurements';
+import ProfilePicker from '@/features/profiles/components/ProfilePicker';
 
 export default function ScaleScreen() {
   // Listen only while this tab is on screen.
@@ -17,12 +18,9 @@ export default function ScaleScreen() {
     }, []),
   );
 
-  const { activeProfile } = useActiveProfile();
-
-  const heightCm = activeProfile?.heightCm ?? 152; // Fallback to temp value if no profile
-  const age = activeProfile ? ageFromBirthDate(activeProfile.birthDate) : 25;
-
-  const sex = activeProfile?.sex ?? 'male'; // Fallback sex if no profile
+  const { activeProfile, profiles, loading, error, setActiveProfile } = useActiveProfile();
+  const { heightCm, age, sex, usingDefaults } = profileMeasurements(activeProfile);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const s = useScaleSession({
     active,
@@ -35,6 +33,22 @@ export default function ScaleScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Scale</Text>
+      <ProfilePicker
+        profiles={profiles}
+        loading={loading}
+        error={error}
+        title={activeProfile ? `Profile: ${activeProfile.name}` : 'Choose profile'}
+        onProfileSelect={(profileId) => {
+          setProfileError(null);
+          void setActiveProfile(profileId).catch((cause: unknown) => {
+            setProfileError(cause instanceof Error ? cause.message : String(cause));
+          });
+        }}
+      />
+      {!!profileError && <Text style={styles.error}>{profileError}</Text>}
+      {usingDefaults && (
+        <Text>Add an active profile to personalize body composition estimates.</Text>
+      )}
       {!!s.error && <Text style={styles.error}>{s.error}</Text>}
       <Text style={styles.weight}>{s.live ? s.live.weightKg.toFixed(2) : '--'} kg</Text>
       <Text>{s.status}</Text>

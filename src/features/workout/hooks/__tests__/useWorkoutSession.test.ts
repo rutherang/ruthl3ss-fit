@@ -53,13 +53,20 @@ const sample = (t: number, kmh = 3): TreadmillData => ({
   kcal: 0,
 });
 
-async function setup(opts: { canSave?: boolean; save?: jest.Mock; retryQueued?: jest.Mock } = {}) {
+async function setup(
+  opts: {
+    canSave?: boolean;
+    heightCm?: number;
+    save?: jest.Mock;
+    retryQueued?: jest.Mock;
+  } = {},
+) {
   const { port, mock, cb } = fakeTreadmill();
   const save = opts.save ?? jest.fn().mockResolvedValue('saved');
   const hook = await renderHook(() =>
     useWorkoutSession({
       treadmill: port,
-      heightCm: 152,
+      heightCm: opts.heightCm ?? 152,
       canSave: opts.canSave ?? true,
       save,
       retryQueued: opts.retryQueued ?? jest.fn().mockResolvedValue(false),
@@ -95,6 +102,20 @@ describe('useWorkoutSession', () => {
     expect(save.mock.calls[0][0]).toMatchObject({ durationS: 29 });
     expect(result.current.saveState).toBe('saved');
     expect(result.current.summary?.segments).toHaveLength(1);
+  });
+
+  it('uses the configured profile height for estimated workout steps', async () => {
+    const shorter = await setup({ heightCm: 150 });
+    await runWorkout(shorter.cb);
+    await act(async () => shorter.cb.onStatus?.('stopped'));
+
+    const taller = await setup({ heightCm: 190 });
+    await runWorkout(taller.cb);
+    await act(async () => taller.cb.onStatus?.('stopped'));
+
+    expect(shorter.result.current.summary?.steps).toBeGreaterThan(
+      taller.result.current.summary?.steps ?? 0,
+    );
   });
 
   it('shows the summary but does not save when signed out', async () => {

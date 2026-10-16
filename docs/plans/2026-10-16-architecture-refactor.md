@@ -173,11 +173,11 @@ Phase 3 verification: All 78 tests pass across 17 suites, TypeScript passes, for
 ### Phase 4: Profile feature and profile-dependent behavior
 
 - [x] Implement profile list/form, picker, avatar/photo upload, repository, and active-profile hook using the account-scoped local cache and queued Sheets sync.
-- [ ] Integrate workout and scale with active height, age, and sex; define and test no-profile, account-switch, offline, queued-write, and failed-photo-upload behavior.
+- [x] Integrate workout and scale with active height, age, and sex; define and test no-profile fallback, account switching, offline/queued writes, and failed-photo-upload behavior.
 - [x] Add profile repository, hook, screen, and photo-upload integration tests.
 - [ ] Complete the manual Android permission/photo-upload smoke test.
 
-Phase 4 task 1 verification: 109 tests pass across 24 suites, TypeScript passes, formatting passes for affected files, and lint has 0 errors with the existing inline-style warning in `src/components/app-tabs.web.tsx`. Android photo-picker permission and Google Drive upload still require a device smoke test.
+Phase 4 implementation verification: 119 tests pass across 27 suites, TypeScript passes, and formatting passes for affected files. Lint has 0 errors and the existing inline-style warning in `src/components/app-tabs.web.tsx`. Automated coverage includes generated avatars, optional photos, account-scoped persistence and switching, queued/offline sync, failed photo upload, and profile-based workout/scale measurements. The manual Android permission/photo-upload smoke test remains pending.
 
 ## 5. Testing and acceptance criteria
 

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { pickProfilePhoto, type PickedProfilePhoto } from '@/integrations/media/profilePhotoPicker';
 import { uploadProfilePhoto } from '@/integrations/google/profilePhotos';
 import type { Profile } from '@/types/profile';
+import { ProfileAvatar } from '../components/ProfileAvatar';
 import type { ProfileSaveResult } from '../data/profilesRepo';
 import type { ProfileInput } from '../domain/profileValidation';
 
@@ -135,13 +136,13 @@ export function ProfileFormScreen({ profile, onSave, onCancel, onSaved }: Props)
 
         <View style={styles.photoSection}>
           <Text variant="titleMedium">Profile photo</Text>
-          {photo ? (
-            <Image source={{ uri: photo.uri }} style={styles.photo} />
-          ) : profile?.photoFileId || savedProfile?.photoFileId ? (
-            <Text>Photo uploaded to Google Drive</Text>
-          ) : (
-            <Text>No photo selected</Text>
-          )}
+          <ProfileAvatar
+            name={name || 'New profile'}
+            seed={profile?.id ?? (name || 'new-profile')}
+            photoUri={photo?.uri}
+            size={112}
+          />
+          <Text>Photo upload is optional. Your generated avatar is used otherwise.</Text>
           <Button mode="outlined" onPress={() => void selectPhoto()} disabled={saving}>
             <Text>Choose photo</Text>
           </Button>
@@ -173,7 +174,6 @@ const styles = StyleSheet.create({
   sexOption: { borderColor: '#888', borderRadius: 8, borderWidth: 1, padding: 12 },
   selectedSexOption: { backgroundColor: '#dcecff', borderColor: '#208AEF' },
   photoSection: { alignItems: 'flex-start', gap: 12 },
-  photo: { width: 112, height: 112, borderRadius: 56 },
   error: { color: '#c62828' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
 });

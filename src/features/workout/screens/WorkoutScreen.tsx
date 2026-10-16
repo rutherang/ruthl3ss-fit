@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Button, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -10,12 +10,17 @@ import { fmtPace, fmtTime } from '@/lib/format';
 import { flushQueuedWorkouts, saveWorkout } from '../data/workoutRepo';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useActiveProfile } from '@/features/profiles/hooks/useActiveProfile';
+import { profileMeasurements } from '@/features/profiles/domain/profileMeasurements';
+import ProfilePicker from '@/features/profiles/components/ProfilePicker';
 import type { WorkoutSummary } from '../domain/workoutRecorder';
+
+const treadmill = new Treadmill(bleManager);
 
 export default function WorkoutScreen() {
   useKeepAwake();
   const { email } = useAccount();
-  const { activeProfile } = useActiveProfile();
+  const { activeProfile, profiles, loading, error, setActiveProfile } = useActiveProfile();
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const adaptedSave = useCallback(
     (summary: WorkoutSummary) => {
@@ -29,10 +34,10 @@ export default function WorkoutScreen() {
     [email],
   );
 
-  const heightCm = activeProfile?.heightCm ?? 152; // Fallback to temp value if no profile
+  const { heightCm, usingDefaults } = profileMeasurements(activeProfile);
 
   const s = useWorkoutSession({
-    treadmill: new Treadmill(bleManager), // one instance for the app
+    treadmill,
     heightCm,
     canSave: email !== null,
     save: adaptedSave,
@@ -43,6 +48,20 @@ export default function WorkoutScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <AccountBar />
+      <ProfilePicker
+        profiles={profiles}
+        loading={loading}
+        error={error}
+        title={activeProfile ? `Profile: ${activeProfile.name}` : 'Choose profile'}
+        onProfileSelect={(profileId) => {
+          setProfileError(null);
+          void setActiveProfile(profileId).catch((cause: unknown) => {
+            setProfileError(cause instanceof Error ? cause.message : String(cause));
+          });
+        }}
+      />
+      {!!profileError && <Text style={styles.error}>{profileError}</Text>}
+      {usingDefaults && <Text>Add an active profile to personalize estimated workout steps.</Text>}
       {!s.connected ? (
         <>
           <Button title="Scan for treadmill" onPress={s.scan} />
@@ -119,4 +138,5 @@ const styles = StyleSheet.create({
   heading: { fontSize: 18, fontWeight: '600' },
   segment: { fontSize: 12 },
   log: { fontSize: 11 },
+  error: { color: '#c62828' },
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Button, Card, Text } from 'react-native-paper';
 import { AccountBar } from '@/features/account/components/AccountBar';
+import { ProfileAvatar } from '@/features/profiles/components/ProfileAvatar';
 import { ProfileFormScreen } from '@/features/profiles/screens/ProfileFormScreen';
 import { useActiveProfile } from '@/features/profiles/hooks/useActiveProfile';
 import type { Profile } from '@/types/profile';
@@ -77,7 +78,11 @@ export default function ProfilesScreen() {
               mode={activeProfile?.id === item.id ? 'contained' : 'outlined'}
               style={styles.card}
             >
-              <Card.Title title={item.name} subtitle={`${item.heightCm} cm`} />
+              <Card.Title
+                title={item.name}
+                subtitle={`${item.heightCm} cm`}
+                left={() => <ProfileAvatar name={item.name} seed={item.id} />}
+              />
               <Card.Actions>
                 <Button
                   onPress={() => void selectProfile(item.id)}

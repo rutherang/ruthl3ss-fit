@@ -63,7 +63,7 @@ export function useScaleSession({ active, listen, heightCm, age, sex }: Deps) {
           });
       }
     };
-  }, [active, listen, heightCm, age, sex]);
+  }, [active, listen]);
 
   const bmi = live ? live.weightKg / (heightCm / 100) ** 2 : null;
   const metrics =

@@ -57,3 +57,23 @@ it('keeps the locally saved profile and lets the user continue if photo upload f
   await fireEvent.press(screen.getByText('Continue without photo'));
   expect(onSaved).toHaveBeenCalledTimes(1);
 }, 15000);
+
+it('saves a profile without selecting or uploading a photo', async () => {
+  const onSave = jest.fn().mockResolvedValue({
+    profile: savedProfile,
+    syncStatus: 'saved',
+  });
+  const onSaved = jest.fn();
+  const screen = await render(
+    <ProfileFormScreen profile={null} onSave={onSave} onCancel={jest.fn()} onSaved={onSaved} />,
+  );
+
+  await fireEvent.changeText(screen.getByTestId('profile-name'), 'Test Runner');
+  await fireEvent.changeText(screen.getByTestId('profile-birth-date'), '1990-02-28');
+  await fireEvent.changeText(screen.getByTestId('profile-height-cm'), '168');
+  await fireEvent.press(screen.getByText('Save profile'));
+
+  await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+  expect(pickProfilePhoto).not.toHaveBeenCalled();
+  expect(uploadProfilePhoto).not.toHaveBeenCalled();
+}, 15000);
