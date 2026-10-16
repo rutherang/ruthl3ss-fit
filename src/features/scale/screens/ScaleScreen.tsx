@@ -3,9 +3,9 @@ import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { startScaleListener } from '@/integrations/ble/scale';
+import { ageFromBirthDate } from '@/features/profiles/domain/age';
 import { useScaleSession } from '../hooks/useScaleSession';
-
-const TEMP_HEIGHT_CM = 152; // Phase 4: comes from the active profile
+import { useActiveProfile } from '@/features/profiles/hooks/useActiveProfile';
 
 export default function ScaleScreen() {
   // Listen only while this tab is on screen.
@@ -17,10 +17,19 @@ export default function ScaleScreen() {
     }, []),
   );
 
+  const { activeProfile } = useActiveProfile();
+
+  const heightCm = activeProfile?.heightCm ?? 152; // Fallback to temp value if no profile
+  const age = activeProfile ? ageFromBirthDate(activeProfile.birthDate) : 25;
+
+  const sex = activeProfile?.sex ?? 'male'; // Fallback sex if no profile
+
   const s = useScaleSession({
     active,
     listen: startScaleListener,
-    heightCm: TEMP_HEIGHT_CM,
+    heightCm,
+    age,
+    sex,
   });
 
   return (
@@ -29,7 +38,15 @@ export default function ScaleScreen() {
       {!!s.error && <Text style={styles.error}>{s.error}</Text>}
       <Text style={styles.weight}>{s.live ? s.live.weightKg.toFixed(2) : '--'} kg</Text>
       <Text>{s.status}</Text>
-      <Text>BMI: {s.bmi ? s.bmi.toFixed(1) : '--'}</Text>
+      {s.bmi !== null && s.bmi !== undefined && (
+        <>
+          <Text>BMI: {s.bmi.toFixed(1)}</Text>
+          {s.bmiLevel !== undefined && <Text>BMI Level: {s.bmiLevel}</Text>}
+          {s.fatPct !== undefined && <Text>Body Fat: {s.fatPct.toFixed(1)}%</Text>}
+          {s.fatLevel !== undefined && <Text>Fat Level: {s.fatLevel}</Text>}
+          {s.bmrKcal !== undefined && <Text>BMR: {s.bmrKcal} kcal/day</Text>}
+        </>
+      )}
 
       <Text style={styles.heading}>This session</Text>
       {s.history.length === 0 && <Text>No weigh-ins yet</Text>}

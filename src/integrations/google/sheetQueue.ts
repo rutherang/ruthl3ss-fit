@@ -4,7 +4,7 @@ import {
   getOutboxEntries,
   removeOutboxEntry,
 } from '@/integrations/storage/outbox';
-import { appendRecords, recordExists, type SheetRecord } from './sheets';
+import { appendRecords, recordExists, upsertRecord, type SheetRecord } from './sheets';
 
 const KIND = 'google-sheet-append';
 
@@ -14,6 +14,7 @@ export type SheetAppendTask = {
   records: SheetRecord[];
   idColumn: string;
   idValue: string;
+  operation?: 'append' | 'upsert';
 };
 
 const flushes = new Map<string, Promise<boolean>>();
@@ -28,7 +29,11 @@ async function flushAccount(accountId: string): Promise<boolean> {
     if (!items.length) return true;
     for (const item of items) {
       const task = JSON.parse(item.payload) as SheetAppendTask;
-      if (!(await recordExists(task.tab, task.headers, task.idColumn, task.idValue))) {
+      if (task.operation === 'upsert') {
+        const record = task.records[0];
+        if (!record) throw new Error(`Queued upsert "${item.operationKey}" has no record.`);
+        await upsertRecord(task.tab, task.headers, record, task.idColumn, task.idValue);
+      } else if (!(await recordExists(task.tab, task.headers, task.idColumn, task.idValue))) {
         await appendRecords(task.tab, task.headers, task.records);
       }
       await removeOutboxEntry(accountId, item.operationKey);
@@ -53,11 +58,31 @@ export async function queueSheetAppend(
   operationKey: string,
   task: SheetAppendTask,
 ): Promise<'saved' | 'queued'> {
+  return queueSheetWrite(accountId, operationKey, task, 'append');
+}
+
+export async function queueSheetUpsert(
+  accountId: string,
+  operationKey: string,
+  task: SheetAppendTask,
+): Promise<'saved' | 'queued'> {
+  if (task.records.length !== 1) {
+    throw new Error('A queued sheet upsert must contain exactly one record.');
+  }
+  return queueSheetWrite(accountId, operationKey, task, 'upsert');
+}
+
+async function queueSheetWrite(
+  accountId: string,
+  operationKey: string,
+  task: SheetAppendTask,
+  operation: 'append' | 'upsert',
+): Promise<'saved' | 'queued'> {
   await enqueueOutboxEntry({
     accountId,
     operationKey,
     kind: KIND,
-    payload: JSON.stringify(task),
+    payload: JSON.stringify({ ...task, operation }),
   });
   try {
     while (true) {

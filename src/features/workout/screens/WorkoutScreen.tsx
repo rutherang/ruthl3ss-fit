@@ -9,14 +9,13 @@ import { Treadmill } from '@/integrations/ble/treadmill';
 import { fmtPace, fmtTime } from '@/lib/format';
 import { flushQueuedWorkouts, saveWorkout } from '../data/workoutRepo';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
+import { useActiveProfile } from '@/features/profiles/hooks/useActiveProfile';
 import type { WorkoutSummary } from '../domain/workoutRecorder';
-
-const TEMP_HEIGHT_CM = 152; // Phase 4: comes from the active profile
-const treadmill = new Treadmill(bleManager); // one instance for the app
 
 export default function WorkoutScreen() {
   useKeepAwake();
   const { email } = useAccount();
+  const { activeProfile } = useActiveProfile();
 
   const adaptedSave = useCallback(
     (summary: WorkoutSummary) => {
@@ -30,9 +29,11 @@ export default function WorkoutScreen() {
     [email],
   );
 
+  const heightCm = activeProfile?.heightCm ?? 152; // Fallback to temp value if no profile
+
   const s = useWorkoutSession({
-    treadmill,
-    heightCm: TEMP_HEIGHT_CM,
+    treadmill: new Treadmill(bleManager), // one instance for the app
+    heightCm,
     canSave: email !== null,
     save: adaptedSave,
     retryQueued,

@@ -1,4 +1,4 @@
-import { queueSheetAppend, flushPendingSheetWrites } from '../sheetQueue';
+import { queueSheetAppend, queueSheetUpsert, flushPendingSheetWrites } from '../sheetQueue';
 import type { SheetAppendTask } from '../sheetQueue';
 
 type MockEntry = {
@@ -30,6 +30,7 @@ const mockRemoveOutboxEntry = jest.fn(async (accountId: string, operationKey: st
   if (index >= 0) mockEntries.splice(index, 1);
 });
 const mockAppendRecords = jest.fn().mockResolvedValue(undefined);
+const mockUpsertRecord = jest.fn().mockResolvedValue(undefined);
 const mockRecordExists = jest.fn().mockResolvedValue(false);
 
 jest.mock('expo-network', () => ({
@@ -42,6 +43,7 @@ jest.mock('@/integrations/storage/outbox', () => ({
 }));
 jest.mock('../sheets', () => ({
   appendRecords: (...args: unknown[]) => mockAppendRecords(...args),
+  upsertRecord: (...args: unknown[]) => mockUpsertRecord(...args),
   recordExists: (...args: unknown[]) => mockRecordExists(...args),
 }));
 
@@ -58,6 +60,7 @@ beforeEach(() => {
   mockNetworkState.isConnected = true;
   mockNetworkState.isInternetReachable = true;
   mockAppendRecords.mockReset().mockResolvedValue(undefined);
+  mockUpsertRecord.mockReset().mockResolvedValue(undefined);
   mockRecordExists.mockReset().mockResolvedValue(false);
   mockGetOutboxEntries.mockClear();
   mockEnqueueOutboxEntry.mockClear();
@@ -79,6 +82,21 @@ describe('Google Sheets write queue', () => {
 
     expect(mockRecordExists).toHaveBeenCalledWith('Workouts', ['id'], 'id', 'w_1');
     expect(mockAppendRecords).toHaveBeenCalledWith('Workouts', ['id'], [{ id: 'w_1' }]);
+    expect(mockEntries).toHaveLength(0);
+  });
+
+  it('upserts queued records without using the append duplicate-check path', async () => {
+    const profileTask: SheetAppendTask = {
+      ...task,
+      operation: 'upsert',
+    };
+
+    await expect(queueSheetUpsert('one@example.com', 'profile:1', profileTask)).resolves.toBe(
+      'saved',
+    );
+
+    expect(mockUpsertRecord).toHaveBeenCalledWith('Workouts', ['id'], { id: 'w_1' }, 'id', 'w_1');
+    expect(mockRecordExists).not.toHaveBeenCalled();
     expect(mockEntries).toHaveLength(0);
   });
 

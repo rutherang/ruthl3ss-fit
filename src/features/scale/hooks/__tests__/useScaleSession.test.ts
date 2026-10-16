@@ -23,7 +23,13 @@ async function setup(active = true) {
   const f = fakeListen();
   const hook = await renderHook(
     (p: { active: boolean }) =>
-      useScaleSession({ active: p.active, listen: f.listen, heightCm: 152 }),
+      useScaleSession({
+        active: p.active,
+        listen: f.listen,
+        heightCm: 152,
+        age: 25,
+        sex: 'male',
+      }),
     { initialProps: { active } },
   );
   return { ...hook, ...f };
@@ -88,7 +94,7 @@ describe('useScaleSession', () => {
   it('shows an error when listening fails', async () => {
     const listen: ScaleListen = jest.fn().mockRejectedValue(new Error('no bluetooth'));
     const { result } = await renderHook(() =>
-      useScaleSession({ active: true, listen, heightCm: 152 }),
+      useScaleSession({ active: true, listen, heightCm: 152, age: 25, sex: 'male' }),
     );
     await act(async () => {});
     expect(result.current.error).toBe('no bluetooth');
