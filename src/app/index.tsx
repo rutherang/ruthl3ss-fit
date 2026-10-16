@@ -1,14 +1,15 @@
-import { saveWorkout } from '@/features/workout/data/workoutRepo';
+import { flushQueuedWorkouts, saveWorkout } from '@/features/workout/data/workoutRepo';
 import { fmtPace, fmtTime } from '@/lib/format';
 import { WorkoutRecorder } from '@/features/workout/domain/workoutRecorder';
 import type { WorkoutSummary } from '@/features/workout/domain/workoutRecorder';
 import type { TreadmillData } from '@/types/treadmill';
-import { useGoogleAccount } from '@/integrations/google/useAccount';
+import { useGoogleAccount } from '@/features/account/useAccount';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
-import { Button, ScrollView } from 'react-native';
+import { AppState, Button, ScrollView } from 'react-native';
 import type { Device } from 'react-native-ble-plx';
 import { Text } from 'react-native-paper';
+import * as Network from 'expo-network';
 import { bleManager } from '../integrations/ble/manager';
 import { MAX_KMH, MIN_KMH, Treadmill, TreadmillEvent } from '../integrations/ble/treadmill';
 
@@ -27,20 +28,24 @@ export default function Home() {
   const [live, setLive] = useState<WorkoutSummary | null>(null);
   const recorder = useRef<WorkoutRecorder | null>(null);
   const account = useGoogleAccount();
-  const signedIn = useRef(false);
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const signedIn = useRef<string | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'queued' | 'error'>(
+    'idle',
+  );
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
-    signedIn.current = account.email !== null;
+    signedIn.current = account.email;
   }, [account.email]);
 
   const save = async (s: WorkoutSummary) => {
+    const accountId = signedIn.current;
+    if (!accountId) return;
     setSaveState('saving');
     setSaveError('');
     try {
-      await saveWorkout(s);
-      setSaveState('saved');
+      const status = await saveWorkout(s, accountId);
+      setSaveState(status);
     } catch (e: any) {
       setSaveError(e.message);
       setSaveState('error');
@@ -50,6 +55,34 @@ export default function Home() {
   const addLog = (m: string) => setLog((l) => [...l.slice(-40), m]);
   const run = (p: Promise<unknown>) =>
     p.catch((e: unknown) => addLog(`error: ${e instanceof Error ? e.message : String(e)}`));
+
+  useEffect(() => {
+    const accountId = account.email?.trim().toLocaleLowerCase();
+    if (!accountId) return;
+
+    const flush = () => {
+      void flushQueuedWorkouts(accountId)
+        .then((synced) => {
+          if (synced) setSaveState((current) => (current === 'queued' ? 'saved' : current));
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          setSaveError(message);
+          setSaveState('error');
+        });
+    };
+    flush();
+    const networkSubscription = Network.addNetworkStateListener((state) => {
+      if (state.isConnected && state.isInternetReachable !== false) flush();
+    });
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') flush();
+    });
+    return () => {
+      networkSubscription.remove();
+      appStateSubscription.remove();
+    };
+  }, [account.email]);
 
   useEffect(
     () => () => {
@@ -66,7 +99,7 @@ export default function Home() {
     setSummary(s);
     setLive(s);
     setSaveState('idle');
-    if (s && signedIn.current) save(s);
+    if (s && signedIn.current) void save(s);
   };
 
   const handleData = (d: TreadmillData) => {
@@ -180,11 +213,14 @@ export default function Home() {
           <Text>
             {saveState === 'saving' && 'Saving to Google Sheets...'}
             {saveState === 'saved' && 'Saved to your Google Sheet ✓'}
+            {saveState === 'queued' && 'Saved on this device; waiting for internet to sync'}
             {saveState === 'error' && `Save failed: ${saveError}`}
             {saveState === 'idle' && !account.email && 'Sign in to save this workout'}
           </Text>
-          {(saveState === 'error' || (saveState === 'idle' && account.email)) && (
-            <Button title="Save to Google Sheets" onPress={() => save(summary)} />
+          {(saveState === 'error' ||
+            saveState === 'queued' ||
+            (saveState === 'idle' && account.email)) && (
+            <Button title="Save to Google Sheets" onPress={() => void save(summary)} />
           )}
         </>
       )}

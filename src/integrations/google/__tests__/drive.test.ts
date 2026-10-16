@@ -37,7 +37,7 @@ describe('Drive integration', () => {
       .mockResolvedValueOnce(response({ files: [{ id: 'folder1' }] }));
     mockFetch(fetchMock);
 
-    await expect(ensureFolder()).resolves.toBe('folder1');
+    await expect(ensureFolder('Ruthl3ssFit')).resolves.toBe('folder1');
 
     expect(GoogleSignin.clearCachedAccessToken).toHaveBeenCalledWith('expired-token');
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -51,9 +51,9 @@ describe('Drive integration', () => {
       .mockResolvedValueOnce(response({ files: [{ id: 'second-account-folder' }] }));
     mockFetch(fetchMock);
 
-    await expect(ensureFolder()).resolves.toBe('first-account-folder');
+    await expect(ensureFolder('Ruthl3ssFit')).resolves.toBe('first-account-folder');
     resetDriveCache();
-    await expect(ensureFolder()).resolves.toBe('second-account-folder');
+    await expect(ensureFolder('Ruthl3ssFit')).resolves.toBe('second-account-folder');
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

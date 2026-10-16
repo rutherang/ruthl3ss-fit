@@ -19,11 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "BLUETOOTH_SCAN",
-        "BLUETOOTH_CONNECT",
-        "ACCESS_FINE_LOCATION"
-      ]
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "ACCESS_FINE_LOCATION"]
     },
     "web": {
       "output": "static",
@@ -46,7 +42,8 @@
           "bluetoothAlwaysPermission": "Ruthl3ssFit connects to your treadmill over Bluetooth."
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
