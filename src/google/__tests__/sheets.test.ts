@@ -51,22 +51,31 @@ describe('saveWorkout', () => {
   it('finds the sheet, then appends the workout and its segments', async () => {
     const fetchMock = jest
       .fn()
+      .mockResolvedValueOnce(ok({ files: [{ id: 'folder1' }] })) // find folder
       .mockResolvedValueOnce(ok({ files: [{ id: 'sheet1' }] })) // find sheet
+      .mockResolvedValueOnce(ok({ parents: ['folder1'] })) // sheet is in folder
       .mockResolvedValueOnce(ok()) // append to Workouts
       .mockResolvedValueOnce(ok()); // append to Workout segments
     (global as any).fetch = fetchMock;
 
     await saveWorkout(summary);
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock.mock.calls[0][0]).toContain('mimeType%3D');
+    expect(fetchMock.mock.calls[1][0]).toContain('mimeType%3D');
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      'https://www.googleapis.com/drive/v3/files/sheet1?fields=parents',
+    );
+    const body = JSON.parse(fetchMock.mock.calls[3][1].body);
     expect(body.values[0][0]).toBe('w_1700000000000');
   });
 
   it('retries only the part that failed, without duplicating rows', async () => {
     const fetchMock = jest
       .fn()
-      .mockResolvedValueOnce(ok({ files: [{ id: 'sheet1' }] }))
+      .mockResolvedValueOnce(ok({ files: [{ id: 'folder1' }] })) // find folder
+      .mockResolvedValueOnce(ok({ files: [{ id: 'sheet1' }] })) // find sheet
+      .mockResolvedValueOnce(ok({ parents: ['folder1'] })) // sheet is in folder
       .mockResolvedValueOnce(ok()) // Workouts saved
       .mockResolvedValueOnce(fail()) // segments fail
       .mockResolvedValueOnce(ok()); // segments retry works
@@ -75,7 +84,8 @@ describe('saveWorkout', () => {
     await expect(saveWorkout(summary)).rejects.toThrow('Google 500');
     await saveWorkout(summary);
 
-    // find + Workouts once + segments twice = 4, not 5
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // Folder, sheet, and parent checks run once. The workout is saved once,
+    // while the failed segment append is retried.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 });
