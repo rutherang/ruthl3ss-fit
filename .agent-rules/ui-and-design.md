@@ -1,53 +1,101 @@
-# Sub-Agent: UI, Styling & Native Components
+# Sub-Agent: UI & React Native Paper Specialist
 
 ## Objective
 
-Enforce consistent styling and component usage using **NativeWind** and **React Native Paper**.
+Enforce consistent, accessible, cross-platform UI development using **React Native Paper (Material Design 3)** and React Native primitives.
 
 ---
 
-## 1. Styling Rules (NativeWind)
+## 1. Provider & Root Setup
 
-- Use Tailwind utility classes via `className="..."`.
-- Use React Native primitives (`View`, `Text`, `Pressable`) decorated with NativeWind classes.
-- Ensure all text string variables are wrapped inside a decorated `<Text>` element.
-
-### Example: Correct NativeWind Usage
+All screens and components using React Native Paper **MUST** be wrapped in `PaperProvider` at the root layout boundary (`src/app/_layout.tsx`).
 
 ```tsx
-import { View, Text, Pressable } from 'react-native';
+import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import { Slot } from 'expo-router';
 
-export function Card({ title }: { title: string }) {
+const theme = {
+  ...MD3LightTheme,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: '#6200ee',
+  },
+};
+
+export default function RootLayout() {
   return (
-    <View className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-      <Text className="text-lg font-semibold text-gray-900">{title}</Text>
-    </View>
+    <PaperProvider theme={theme}>
+      <Slot />
+    </PaperProvider>
   );
 }
 ```
 
-## 2. Component Library Rules (React Native Paper)
+## 2. Component Usage Guidelines
 
-When using React Native Paper, use thematic components (Button, Card, TextInput, Modal) instead of raw pressables.
+### A. Typography (Text)
 
-Do NOT mix HTML buttons or web input types.
-
-Example: Correct React Native Paper Usage
+Use React Native Paper's `<Text>` component instead of raw React Native `<Text>` whenever rendering themed typography, as it automatically applies MD3 font variants (`variant="titleMedium"`, `variant="bodyLarge"`, etc.).
 
 ```tsx
-import { Button, Card } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 
-export function ActionCard() {
+// ✅ Preferred for MD3 theme consistency
+<Text variant="titleMedium">Account Settings</Text>;
+```
+
+### B. Actions & Buttons
+
+Use Paper's `<Button>` component for user actions, specifying `mode` explicitly (`contained`, `outlined`, `text`, or `elevated`).
+
+```tsx
+import { Button } from 'react-native-paper';
+
+// ✅ Standard Paper Button
+<Button loading={isLoading} mode="contained" onPress={handleSave}>
+  Save Profile
+</Button>;
+```
+
+### C. Form Inputs (TextInput)
+
+**ALWAYS** use Paper's `<TextInput>` for forms. Specify `mode="outlined"` or `mode="flat"` explicitly.
+
+```tsx
+import { useState } from 'react';
+import { TextInput } from 'react-native-paper';
+
+export function NameInput() {
+  const [text, setText] = useState('');
+
+  return <TextInput label="Full Name" mode="outlined" onChangeText={setText} value={text} />;
+}
+```
+
+### D. Cards & Surface Container Layouts
+
+Structure feature UI containers using `<Card>` or `<Surface>` primitives.
+
+```tsx
+import { Card, Text, Button } from 'react-native-paper';
+
+export function ProfileSummaryCard({ name }: { name: string }) {
   return (
-    <Card>
-      <Card.Content>{/* React Native Paper components */}</Card.Content>
-
+    <Card mode="elevated">
+      <Card.Content>
+        <Text variant="titleLarge">{name}</Text>
+        <Text variant="bodyMedium">Active User Session</Text>
+      </Card.Content>
       <Card.Actions>
-        <Button mode="contained" onPress={() => {}}>
-          Save
-        </Button>
+        <Button mode="text">Edit</Button>
       </Card.Actions>
     </Card>
   );
 }
 ```
+
+## 3. Strict Safety Guardrails
+
+- ❌ **NEVER** import web forms or HTML inputs (`<input>`, `<button>`, `<form>`).
+- ❌ **NEVER** use `TouchableOpacity` when Paper provides `<TouchableRipple>` or `<Button>`.
+- ❌ **NEVER** leave raw string primitives outside `<Text>` (e.g., `{status && status}`). Wrap them in `<Text>` or convert them to strict booleans.
