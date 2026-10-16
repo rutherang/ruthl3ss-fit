@@ -2,19 +2,10 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { bleManager } from '@/integrations/ble/manager';
 import { startScaleListener } from '@/integrations/ble/scale';
-import type { ScaleReading } from '@/types/scale';
 import { useScaleSession } from '../hooks/useScaleSession';
 
 const TEMP_HEIGHT_CM = 152; // Phase 4: comes from the active profile
-
-// (adapt) Module level, so its identity stays stable. Use whatever your
-// Phase 2 code does to start and stop the scale scan.
-async function listen(onReading: (r: ScaleReading) => void) {
-  await startScaleListener(onReading);
-  return () => bleManager.stopDeviceScan();
-}
 
 export default function ScaleScreen() {
   // Listen only while this tab is on screen.
@@ -26,15 +17,17 @@ export default function ScaleScreen() {
     }, []),
   );
 
-  const s = useScaleSession({ active, listen, heightCm: TEMP_HEIGHT_CM });
+  const s = useScaleSession({
+    active,
+    listen: startScaleListener,
+    heightCm: TEMP_HEIGHT_CM,
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Scale</Text>
       {!!s.error && <Text style={styles.error}>{s.error}</Text>}
-      <Text style={styles.weight}>
-        {s.live ? s.live.weightKg.toFixed(2) : '--'} kg
-      </Text>
+      <Text style={styles.weight}>{s.live ? s.live.weightKg.toFixed(2) : '--'} kg</Text>
       <Text>{s.status}</Text>
       <Text>BMI: {s.bmi ? s.bmi.toFixed(1) : '--'}</Text>
 

@@ -81,4 +81,19 @@ describe('AccountProvider', () => {
     expect(result.current.b.email).toBeNull();
     expect(resetSheetCache).toHaveBeenCalled();
   });
+
+  it('keeps the account and reports a sign-out failure', async () => {
+    mocked.signInSilently.mockResolvedValue('me@example.com');
+    mocked.signOut.mockRejectedValue(new Error('sign-out failed'));
+    const { result } = await setup();
+
+    await act(async () => {
+      await result.current.a.signOut();
+    });
+
+    expect(result.current.a.email).toBe('me@example.com');
+    expect(result.current.a.error).toBe('sign-out failed');
+    expect(result.current.a.busy).toBe(false);
+    expect(resetSheetCache).not.toHaveBeenCalled();
+  });
 });

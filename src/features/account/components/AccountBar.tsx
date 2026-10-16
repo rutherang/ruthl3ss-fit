@@ -8,7 +8,7 @@ export function AccountBar() {
     <>
       <Text>{email ? `Google: ${email}` : 'Not signed in to Google'}</Text>
       {email ? (
-        <Button title="Sign out" onPress={signOut} />
+        <Button title="Sign out" onPress={signOut} disabled={busy} />
       ) : (
         <Button title="Sign in with Google" onPress={signIn} disabled={busy} />
       )}

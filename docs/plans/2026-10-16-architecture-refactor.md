@@ -162,11 +162,13 @@ Phase 2 verification: BLE and Google Drive/Sheets integrations are separated; Sh
 
 ### Phase 3: Shared account state and screen extraction
 
-- [ ] Add the account provider at the application layout boundary and adapt all consumers to the single shared state.
-- [ ] Extract `useWorkoutSession.ts` and `WorkoutScreen.tsx`; test its logic independently of screen rendering.
-- [ ] Extract the scale screen/hook and keep the route as a thin default re-export.
-- [ ] Convert `src/app/index.tsx` and `src/app/scale.tsx` to route re-exports after their destinations are stable.
-- [ ] Replace the Explore tab with a Profiles tab in `app-tabs.tsx`; remove `explore.tsx` after checking for links/deep-link references. No Explore deep links are in scope.
+- [x] Add the account provider at the application layout boundary and adapt all consumers to the single shared state.
+- [x] Extract `useWorkoutSession.ts` and `WorkoutScreen.tsx`; test its logic independently of screen rendering.
+- [x] Extract the scale screen/hook and keep the route as a thin default re-export.
+- [x] Convert `src/app/index.tsx` and `src/app/scale.tsx` to route re-exports after their destinations are stable.
+- [x] Replace the Explore tab with a Profiles tab in `app-tabs.tsx`; remove `explore.tsx` after checking for links/deep-link references. No Explore deep links are in scope.
+
+Phase 3 verification: All 78 tests pass across 17 suites, TypeScript passes, formatting passes for the Phase 3 files, and lint has 0 errors with 1 remaining inline-style warning in the existing web tab component. Review fixes preserve scan-lease cleanup and queued-save status/retry behavior.
 
 ### Phase 4: Profile feature and profile-dependent behavior
 

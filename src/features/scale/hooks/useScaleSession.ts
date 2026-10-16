@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ScaleReading } from '@/types/scale';
 
 // Starts listening and resolves with a function that stops it.
-export type ScaleListen = (
-  onReading: (r: ScaleReading) => void,
-) => Promise<() => void>;
+export type ScaleStop = () => void | Promise<void>;
+export type ScaleListen = (onReading: (r: ScaleReading) => void) => Promise<ScaleStop>;
 
 type Deps = { active: boolean; listen: ScaleListen; heightCm: number };
 
@@ -19,7 +18,7 @@ export function useScaleSession({ active, listen, heightCm }: Deps) {
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
-    let stop: (() => void) | undefined;
+    let stop: ScaleStop | undefined;
 
     const onReading = (r: ScaleReading) => {
       setLive(r);
@@ -34,17 +33,27 @@ export function useScaleSession({ active, listen, heightCm }: Deps) {
     };
 
     listen(onReading)
-      .then((s) => {
-        if (cancelled) s();
+      .then(async (s) => {
+        if (cancelled) await s();
         else stop = s;
       })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+        }
       });
 
     return () => {
       cancelled = true;
-      stop?.();
+      if (stop) {
+        const stopListener = stop;
+        stop = undefined;
+        void Promise.resolve()
+          .then(stopListener)
+          .catch((cause: unknown) => {
+            setError(cause instanceof Error ? cause.message : String(cause));
+          });
+      }
     };
   }, [active, listen]);
 

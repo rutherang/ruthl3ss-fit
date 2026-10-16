@@ -1,8 +1,21 @@
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { AppState } from 'react-native';
+import * as Network from 'expo-network';
 import type { Device } from 'react-native-ble-plx';
 import { MAX_KMH } from '@/integrations/ble/treadmill';
 import type { TreadmillData } from '@/types/treadmill';
 import { useWorkoutSession, type TreadmillPort } from '../useWorkoutSession';
+
+let networkListener: Parameters<typeof Network.addNetworkStateListener>[0] | undefined;
+
+beforeEach(() => {
+  networkListener = undefined;
+  jest.spyOn(Network, 'addNetworkStateListener').mockImplementation((listener) => {
+    networkListener = listener;
+    return { remove: jest.fn() };
+  });
+  jest.spyOn(AppState, 'addEventListener').mockImplementation(() => ({ remove: jest.fn() }));
+});
 
 type Callbacks = {
   onData?: (d: TreadmillData) => void;
@@ -40,15 +53,16 @@ const sample = (t: number, kmh = 3): TreadmillData => ({
   kcal: 0,
 });
 
-async function setup(opts: { canSave?: boolean; save?: jest.Mock } = {}) {
+async function setup(opts: { canSave?: boolean; save?: jest.Mock; retryQueued?: jest.Mock } = {}) {
   const { port, mock, cb } = fakeTreadmill();
-  const save = opts.save ?? jest.fn().mockResolvedValue(undefined);
+  const save = opts.save ?? jest.fn().mockResolvedValue('saved');
   const hook = await renderHook(() =>
     useWorkoutSession({
       treadmill: port,
       heightCm: 152,
       canSave: opts.canSave ?? true,
       save,
+      retryQueued: opts.retryQueued ?? jest.fn().mockResolvedValue(false),
     }),
   );
   await act(async () => {
@@ -94,10 +108,7 @@ describe('useWorkoutSession', () => {
   });
 
   it('reports a failed save and can retry it', async () => {
-    const save = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValue(undefined);
+    const save = jest.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue('saved');
     const { result, cb } = await setup({ save });
     await runWorkout(cb);
     await act(async () => cb.onStatus?.('stopped'));
@@ -109,6 +120,31 @@ describe('useWorkoutSession', () => {
       await result.current.save(result.current.summary!);
     });
     expect(result.current.saveState).toBe('saved');
+  });
+
+  it('keeps an offline save marked queued until sync succeeds', async () => {
+    const save = jest.fn().mockResolvedValue('queued');
+    const { result, cb } = await setup({ save });
+    await runWorkout(cb);
+    await act(async () => cb.onStatus?.('stopped'));
+
+    expect(result.current.saveState).toBe('queued');
+  });
+
+  it('retries a queued save when connectivity returns', async () => {
+    const retryQueued = jest.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const save = jest.fn().mockResolvedValue('queued');
+    const { result, cb } = await setup({ save, retryQueued });
+    await runWorkout(cb);
+    await act(async () => cb.onStatus?.('stopped'));
+
+    expect(result.current.saveState).toBe('queued');
+    await act(async () => {
+      networkListener?.({ isConnected: true, isInternetReachable: true });
+    });
+
+    await waitFor(() => expect(result.current.saveState).toBe('saved'));
+    expect(retryQueued).toHaveBeenCalledTimes(2);
   });
 
   it('does not end the workout on pause', async () => {

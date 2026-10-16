@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as auth from '@/integrations/google/auth';
 import { resetSheetCache } from '@/integrations/google/sheets';
 
@@ -29,6 +22,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     auth
       .signInSilently()
       .then((e) => alive && setEmail(e))
+      .catch((cause: unknown) => {
+        if (alive) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+        }
+      })
       .finally(() => alive && setBusy(false));
     return () => {
       alive = false;
@@ -40,24 +38,30 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     setError('');
     try {
       setEmail(await auth.signIn());
-    } catch (e: any) {
-      setError(e?.message ?? 'Sign-in failed');
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    await auth.signOut();
-    resetSheetCache(); // the next account gets its own sheet
-    setEmail(null);
+    setBusy(true);
+    setError('');
+    try {
+      await auth.signOut();
+      resetSheetCache();
+      setEmail(null);
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
   const value = useMemo(
     () => ({ email, busy, error, signIn, signOut }),
     [email, busy, error, signIn, signOut],
   );
-  return (
-    <AccountContext.Provider value={value}>{children}</AccountContext.Provider>
-  );
+  return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }

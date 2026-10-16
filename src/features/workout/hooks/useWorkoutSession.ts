@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import * as Network from 'expo-network';
 import type { Device } from 'react-native-ble-plx';
 import {
   MAX_KMH,
@@ -7,12 +9,9 @@ import {
   type TreadmillEvent,
 } from '@/integrations/ble/treadmill';
 import type { TreadmillData } from '@/types/treadmill';
-import {
-  WorkoutRecorder,
-  type WorkoutSummary,
-} from '../domain/workoutRecorder';
+import { WorkoutRecorder, type WorkoutSummary } from '../domain/workoutRecorder';
 
-export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+export type SaveState = 'idle' | 'saving' | 'saved' | 'queued' | 'error';
 
 export type TreadmillPort = Pick<
   Treadmill,
@@ -23,7 +22,8 @@ type Deps = {
   treadmill: TreadmillPort;
   heightCm: number;
   canSave: boolean;
-  save: (summary: WorkoutSummary) => Promise<void>;
+  save: (summary: WorkoutSummary) => Promise<'saved' | 'queued'>;
+  retryQueued: () => Promise<boolean>;
 };
 
 export function useWorkoutSession({
@@ -31,6 +31,7 @@ export function useWorkoutSession({
   heightCm,
   canSave,
   save: persist,
+  retryQueued,
 }: Deps) {
   const [found, setFound] = useState<Device[]>([]);
   const [connected, setConnected] = useState(false);
@@ -50,6 +51,39 @@ export function useWorkoutSession({
     latest.current = { canSave, heightCm, persist };
   });
 
+  useEffect(() => {
+    if (!canSave) return;
+    let active = true;
+
+    const flush = () => {
+      void retryQueued()
+        .then((synced) => {
+          if (active && synced) {
+            setSaveState((current) => (current === 'queued' ? 'saved' : current));
+          }
+        })
+        .catch((cause: unknown) => {
+          if (!active) return;
+          setSaveError(cause instanceof Error ? cause.message : String(cause));
+          setSaveState('error');
+        });
+    };
+
+    flush();
+    const networkSubscription = Network.addNetworkStateListener((state) => {
+      if (state.isConnected && state.isInternetReachable !== false) flush();
+    });
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') flush();
+    });
+
+    return () => {
+      active = false;
+      networkSubscription.remove();
+      appStateSubscription.remove();
+    };
+  }, [canSave, retryQueued]);
+
   useEffect(
     () => () => {
       void treadmill.disconnect(true);
@@ -59,16 +93,18 @@ export function useWorkoutSession({
 
   const addLog = (m: string) => setLog((l) => [...l.slice(-40), m]);
   const run = (p: Promise<unknown>) =>
-    p.catch((e) => addLog(`error: ${e.message}`));
+    p.catch((cause: unknown) =>
+      addLog(`error: ${cause instanceof Error ? cause.message : String(cause)}`),
+    );
 
   const save = async (s: WorkoutSummary) => {
     setSaveState('saving');
     setSaveError('');
     try {
-      await latest.current.persist(s);
-      setSaveState('saved');
-    } catch (e: any) {
-      setSaveError(e.message);
+      const result = await latest.current.persist(s);
+      setSaveState(result);
+    } catch (cause: unknown) {
+      setSaveError(cause instanceof Error ? cause.message : String(cause));
       setSaveState('error');
     }
   };
@@ -128,10 +164,7 @@ export function useWorkoutSession({
     );
 
   const changeSpeed = (delta: number) => {
-    const next = Math.min(
-      MAX_KMH,
-      Math.max(MIN_KMH, +(targetKmh + delta).toFixed(1)),
-    );
+    const next = Math.min(MAX_KMH, Math.max(MIN_KMH, +(targetKmh + delta).toFixed(1)));
     setTargetKmh(next);
     return run(treadmill.setSpeed(next));
   };

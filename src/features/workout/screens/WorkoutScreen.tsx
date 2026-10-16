@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Button, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -6,7 +7,7 @@ import { useAccount } from '@/features/account/useAccount';
 import { bleManager } from '@/integrations/ble/manager';
 import { Treadmill } from '@/integrations/ble/treadmill';
 import { fmtPace, fmtTime } from '@/lib/format';
-import { saveWorkout } from '../data/workoutRepo';
+import { flushQueuedWorkouts, saveWorkout } from '../data/workoutRepo';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import type { WorkoutSummary } from '../domain/workoutRecorder';
 
@@ -17,17 +18,24 @@ export default function WorkoutScreen() {
   useKeepAwake();
   const { email } = useAccount();
 
-  // Adapt saveWorkout to match the expected signature (summary: WorkoutSummary) => Promise<void>
-  const adaptedSave = async (summary: WorkoutSummary) => {
-    if (!email) return; // Don't save if not signed in
-    await saveWorkout(summary, email); // Use email as accountId, default profileId
-  };
+  const adaptedSave = useCallback(
+    (summary: WorkoutSummary) => {
+      if (!email) throw new Error('Sign in to Google before saving a workout.');
+      return saveWorkout(summary, email);
+    },
+    [email],
+  );
+  const retryQueued = useCallback(
+    () => (email ? flushQueuedWorkouts(email) : Promise.resolve(false)),
+    [email],
+  );
 
   const s = useWorkoutSession({
     treadmill,
     heightCm: TEMP_HEIGHT_CM,
     canSave: email !== null,
     save: adaptedSave,
+    retryQueued,
   });
   const { summary } = s;
 
@@ -38,18 +46,12 @@ export default function WorkoutScreen() {
         <>
           <Button title="Scan for treadmill" onPress={s.scan} />
           {s.found.map((d) => (
-            <Button
-              key={d.id}
-              title={`${d.name} (${d.rssi})`}
-              onPress={() => s.connect(d)}
-            />
+            <Button key={d.id} title={`${d.name} (${d.rssi})`} onPress={() => s.connect(d)} />
           ))}
         </>
       ) : (
         <>
-          <Text style={styles.speed}>
-            {s.data.speedKmh?.toFixed(1) ?? '--'} km/h
-          </Text>
+          <Text style={styles.speed}>{s.data.speedKmh?.toFixed(1) ?? '--'} km/h</Text>
           <Text>Distance: {s.data.distanceM ?? '--'} m</Text>
           <Text>Time: {s.data.elapsedS ?? '--'} s</Text>
           <Text>Incline: {s.data.inclinePct ?? '--'} %</Text>
@@ -73,35 +75,29 @@ export default function WorkoutScreen() {
         <>
           <Text style={styles.heading}>Last workout</Text>
           <Text>
-            {fmtTime(summary.durationS)} ·{' '}
-            {(summary.distanceM / 1000).toFixed(2)} km · ~{summary.steps} steps
-            · {summary.kcal} kcal
+            {fmtTime(summary.durationS)} · {(summary.distanceM / 1000).toFixed(2)} km · ~
+            {summary.steps} steps · {summary.kcal} kcal
           </Text>
           <Text>
-            Avg {summary.avgKmh.toFixed(1)} km/h · max{' '}
-            {summary.maxKmh.toFixed(1)} km/h
+            Avg {summary.avgKmh.toFixed(1)} km/h · max {summary.maxKmh.toFixed(1)} km/h
           </Text>
           {summary.segments.map((g, i) => (
             <Text key={i} style={styles.segment}>
-              #{i + 1} @{fmtTime(g.startS)}: {g.avgKmh.toFixed(1)} km/h for{' '}
-              {fmtTime(g.durationS)}, {g.distanceM.toFixed(0)} m,{' '}
-              {fmtPace(g.paceMinPerKm)}, ~{g.steps} steps
+              #{i + 1} @{fmtTime(g.startS)}: {g.avgKmh.toFixed(1)} km/h for {fmtTime(g.durationS)},{' '}
+              {g.distanceM.toFixed(0)} m, {fmtPace(g.paceMinPerKm)}, ~{g.steps} steps
             </Text>
           ))}
           <Text>
             {s.saveState === 'saving' && 'Saving to Google Sheets...'}
             {s.saveState === 'saved' && 'Saved to your Google Sheet ✓'}
+            {s.saveState === 'queued' && 'Saved on this device; waiting for internet to sync'}
             {s.saveState === 'error' && `Save failed: ${s.saveError}`}
-            {s.saveState === 'idle' &&
-              email === null &&
-              'Sign in to save this workout'}
+            {s.saveState === 'idle' && email === null && 'Sign in to save this workout'}
           </Text>
           {(s.saveState === 'error' ||
+            s.saveState === 'queued' ||
             (s.saveState === 'idle' && email !== null)) && (
-            <Button
-              title="Save to Google Sheets"
-              onPress={() => s.save(summary)}
-            />
+            <Button title="Save to Google Sheets" onPress={() => s.save(summary)} />
           )}
         </>
       )}
