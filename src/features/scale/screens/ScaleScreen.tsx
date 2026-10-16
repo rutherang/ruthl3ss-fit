@@ -1,77 +1,46 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { bleManager } from '@/integrations/ble/manager';
+import { startScaleListener } from '@/integrations/ble/scale';
 import type { ScaleReading } from '@/types/scale';
-import { startScaleListener } from '../integrations/ble/scale';
+import { useScaleSession } from '../hooks/useScaleSession';
 
-const HEIGHT_CM = 152; // change to your height
+const TEMP_HEIGHT_CM = 152; // Phase 4: comes from the active profile
 
-export default function ScalePage() {
-  const [live, setLive] = useState<ScaleReading | null>(null);
-  const [history, setHistory] = useState<ScaleReading[]>([]);
-  const [error, setError] = useState('');
-  const sawMeasuring = useRef(false);
-  const [hasMeasured, setHasMeasured] = useState(false);
-  const saved = useRef(false);
+// (adapt) Module level, so its identity stays stable. Use whatever your
+// Phase 2 code does to start and stop the scale scan.
+async function listen(onReading: (r: ScaleReading) => void) {
+  await startScaleListener(onReading);
+  return () => bleManager.stopDeviceScan();
+}
 
+export default function ScaleScreen() {
+  // Listen only while this tab is on screen.
+  const [active, setActive] = useState(false);
   useFocusEffect(
     useCallback(() => {
-      let focused = true;
-      let stopScan: (() => Promise<void>) | undefined;
-      void startScaleListener((r) => {
-        setLive(r);
-        if (!r.final) {
-          sawMeasuring.current = true;
-          setHasMeasured(true);
-          saved.current = false;
-        } else if (sawMeasuring.current && !saved.current) {
-          saved.current = true;
-          setHistory((h) => [r, ...h]);
-        }
-      })
-        .then((stop) => {
-          if (focused) {
-            stopScan = stop;
-          } else {
-            void stop().catch((e: unknown) => console.error('Unable to stop scale scan', e));
-          }
-        })
-        .catch((e: unknown) => {
-          if (focused) setError(e instanceof Error ? e.message : String(e));
-        });
-
-      return () => {
-        focused = false;
-        if (stopScan) {
-          void stopScan().catch((e: unknown) => console.error('Unable to stop scale scan', e));
-        }
-      };
+      setActive(true);
+      return () => setActive(false);
     }, []),
   );
 
-  const bmi = live ? live.weightKg / (HEIGHT_CM / 100) ** 2 : null;
-  const status = !live
-    ? 'Step on the scale'
-    : !live.final
-      ? 'Measuring...'
-      : hasMeasured
-        ? 'Final reading'
-        : 'Last reading (may be old)';
+  const s = useScaleSession({ active, listen, heightCm: TEMP_HEIGHT_CM });
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, gap: 8 }}>
-      <Text style={{ fontSize: 24, fontWeight: '700' }}>Scale</Text>
-      {!!error && <Text style={{ color: 'red' }}>{error}</Text>}
-      <Text style={{ fontSize: 48, fontWeight: '700' }}>
-        {live ? live.weightKg.toFixed(2) : '--'} kg
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Scale</Text>
+      {!!s.error && <Text style={styles.error}>{s.error}</Text>}
+      <Text style={styles.weight}>
+        {s.live ? s.live.weightKg.toFixed(2) : '--'} kg
       </Text>
-      <Text>{status}</Text>
-      <Text>BMI: {bmi ? bmi.toFixed(1) : '--'}</Text>
+      <Text>{s.status}</Text>
+      <Text>BMI: {s.bmi ? s.bmi.toFixed(1) : '--'}</Text>
 
-      <Text style={{ fontSize: 18, fontWeight: '600', marginTop: 16 }}>This session</Text>
-      {history.length === 0 && <Text>No weigh-ins yet</Text>}
-      {history.map((h, i) => (
+      <Text style={styles.heading}>This session</Text>
+      {s.history.length === 0 && <Text>No weigh-ins yet</Text>}
+      {s.history.map((h, i) => (
         <Text key={i}>
           {new Date(h.at).toLocaleTimeString()} {h.weightKg.toFixed(2)} kg
         </Text>
@@ -79,3 +48,11 @@ export default function ScalePage() {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { padding: 24, paddingTop: 60, gap: 8 },
+  title: { fontSize: 24, fontWeight: '700' },
+  error: { color: 'red' },
+  weight: { fontSize: 48, fontWeight: '700' },
+  heading: { fontSize: 18, fontWeight: '600', marginTop: 16 },
+});
