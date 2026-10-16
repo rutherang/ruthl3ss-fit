@@ -12,7 +12,11 @@ export function WebBadge() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="code" themeColor="textSecondary" style={styles.versionText}>
+      <ThemedText
+        type="code"
+        themeColor="textSecondary"
+        style={styles.versionText}
+      >
         v{version}
       </ThemedText>
       <Image
@@ -28,16 +32,16 @@ export function WebBadge() {
 }
 
 const styles = StyleSheet.create({
+  badgeImage: {
+    aspectRatio: 123 / 24,
+    width: 123,
+  },
   container: {
-    padding: Spacing.five,
     alignItems: 'center',
     gap: Spacing.two,
+    padding: Spacing.five,
   },
   versionText: {
     textAlign: 'center',
-  },
-  badgeImage: {
-    width: 123,
-    aspectRatio: 123 / 24,
   },
 });

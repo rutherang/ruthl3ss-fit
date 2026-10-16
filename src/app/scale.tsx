@@ -12,6 +12,7 @@ export default function ScalePage() {
   const [history, setHistory] = useState<ScaleReading[]>([]);
   const [error, setError] = useState('');
   const sawMeasuring = useRef(false);
+  const [hasMeasured, setHasMeasured] = useState(false);
   const saved = useRef(false);
 
   useFocusEffect(
@@ -20,6 +21,7 @@ export default function ScalePage() {
         setLive(r);
         if (!r.final) {
           sawMeasuring.current = true;
+          setHasMeasured(true);
           saved.current = false;
         } else if (sawMeasuring.current && !saved.current) {
           saved.current = true;
@@ -38,7 +40,7 @@ export default function ScalePage() {
     ? 'Step on the scale'
     : !live.final
       ? 'Measuring...'
-      : sawMeasuring.current
+      : hasMeasured
         ? 'Final reading'
         : 'Last reading (may be old)';
 
