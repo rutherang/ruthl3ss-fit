@@ -1,15 +1,9 @@
 import { Buffer } from 'buffer';
 import { BleManager } from 'react-native-ble-plx';
+import type { ScaleReading } from '@/types/scale';
 import { ensureBlePermissions } from './permissions';
 
 export const SCALE_ID = 'D8:E7:2F:E1:0A:21';
-
-export type ScaleReading = {
-  weightKg: number;
-  impedanceRaw: number;
-  final: boolean;
-  at: number;
-};
 
 export function parseScale(b64?: string | null): ScaleReading | null {
   if (!b64) return null;

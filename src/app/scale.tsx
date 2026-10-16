@@ -2,8 +2,9 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
+import type { ScaleReading } from '@/types/scale';
 import { bleManager } from '../ble/manager';
-import { ScaleReading, startScaleListener } from '../ble/scale';
+import { startScaleListener } from '../ble/scale';
 
 const HEIGHT_CM = 152; // change to your height
 

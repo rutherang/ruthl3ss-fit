@@ -1,13 +1,16 @@
-import { saveWorkout } from '@/google/sheets';
+import { saveWorkout } from '@/features/workout/data/workoutRepo';
+import { fmtPace, fmtTime } from '@/lib/format';
+import { WorkoutRecorder } from '@/features/workout/domain/workoutRecorder';
+import type { WorkoutSummary } from '@/features/workout/domain/workoutRecorder';
+import type { TreadmillData } from '@/types/treadmill';
 import { useGoogleAccount } from '@/google/useAccount';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
 import { Button, ScrollView } from 'react-native';
-import { Device } from 'react-native-ble-plx';
+import type { Device } from 'react-native-ble-plx';
 import { Text } from 'react-native-paper';
 import { bleManager } from '../ble/manager';
-import { MAX_KMH, MIN_KMH, Treadmill, TreadmillData, TreadmillEvent } from '../ble/treadmill';
-import { WorkoutRecorder, WorkoutSummary, fmtPace, fmtTime } from '../lib/workoutRecorder';
+import { MAX_KMH, MIN_KMH, Treadmill, TreadmillEvent } from '../ble/treadmill';
 
 const HEIGHT_CM = 152; // temporary; will come from the active profile
 const treadmill = new Treadmill(bleManager);

@@ -1,5 +1,5 @@
-import { TreadmillData } from '../ble/treadmill';
-import { stepLengthM } from './steps';
+import type { TreadmillData } from '@/types/treadmill';
+import { stepLengthM } from '@/features/workout/domain/steps';
 
 type Sample = {
   t: number; // treadmill elapsed seconds
@@ -39,15 +39,6 @@ const STABLE_RANGE = 0.2; // km/h spread allowed inside that window
 const MIN_CHANGE = 0.3; // km/h difference that starts a new segment
 const MIN_SEGMENT_S = 10; // shorter segments are absorbed
 
-export const fmtTime = (s: number) =>
-  `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
-
-export const fmtPace = (p: number | null) => {
-  if (p === null) return '--';
-  const sec = Math.round(p * 60);
-  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}/km`;
-};
-
 export class WorkoutRecorder {
   private samples: Sample[] = [];
   readonly startedAt = Date.now();
@@ -58,12 +49,7 @@ export class WorkoutRecorder {
   ) {}
 
   push(d: TreadmillData) {
-    if (
-      d.elapsedS === undefined ||
-      d.distanceM === undefined ||
-      d.speedKmh === undefined
-    )
-      return;
+    if (d.elapsedS === undefined || d.distanceM === undefined || d.speedKmh === undefined) return;
     let last: Sample | undefined = this.samples[this.samples.length - 1];
     if (last && d.elapsedS < last.t) {
       this.samples = []; // the treadmill reset its clock: a new run began
@@ -89,9 +75,7 @@ export class WorkoutRecorder {
     const steps = [0];
     for (let i = 1; i < s.length; i++) {
       const dd = Math.max(0, s[i].m - s[i - 1].m);
-      steps.push(
-        (dd / stepLengthM(s[i].kmh, this.heightCm)) * this.calibration,
-      );
+      steps.push((dd / stepLengthM(s[i].kmh, this.heightCm)) * this.calibration);
     }
 
     // Find where the speed settled at a new level.
@@ -122,8 +106,7 @@ export class WorkoutRecorder {
         distanceM,
         steps: Math.round(st),
         avgKmh: durationS > 0 ? (distanceM / durationS) * 3.6 : 0,
-        paceMinPerKm:
-          distanceM > 0 ? durationS / 60 / (distanceM / 1000) : null,
+        paceMinPerKm: distanceM > 0 ? durationS / 60 / (distanceM / 1000) : null,
         kcal: s[b].kcal - s[a].kcal,
       };
     });
@@ -142,9 +125,7 @@ export class WorkoutRecorder {
       maxKmh: Math.max(...s.map((x) => x.kmh)),
       avgInclinePct: s.reduce((a, x) => a + x.incline, 0) / s.length,
       kcal: last.kcal - first.kcal,
-      avgHr: hrs.length
-        ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length)
-        : undefined,
+      avgHr: hrs.length ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length) : undefined,
       maxHr: hrs.length ? Math.max(...hrs) : undefined,
       segments,
     };

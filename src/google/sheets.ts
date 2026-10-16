@@ -1,5 +1,4 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { WorkoutSummary } from '../lib/workoutRecorder';
 import { getAccessToken } from './auth';
 
 const SHEET_NAME = 'Ruthl3ssFit';
@@ -66,9 +65,7 @@ async function api(url: string, init: RequestInit = {}, retry = true) {
     return api(url, init, false);
   }
   if (!res.ok) {
-    throw new Error(
-      `Google ${res.status}: ${(await res.text()).slice(0, 160)}`,
-    );
+    throw new Error(`Google ${res.status}: ${(await res.text()).slice(0, 160)}`);
   }
   return res.json();
 }
@@ -87,17 +84,13 @@ async function findOrCreateFolder(): Promise<string> {
     `name='${FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`,
   );
   const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}` +
-      `&orderBy=createdTime&fields=files(id)`,
+    `https://www.googleapis.com/drive/v3/files?q=${q}` + `&orderBy=createdTime&fields=files(id)`,
   );
   if (found.files?.length) return found.files[0].id as string;
-  const created = await api(
-    'https://www.googleapis.com/drive/v3/files?fields=id',
-    {
-      method: 'POST',
-      body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
-    },
-  );
+  const created = await api('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST',
+    body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
+  });
   return created.id as string;
 }
 
@@ -110,15 +103,12 @@ export function ensureFolder(): Promise<string> {
 }
 
 async function moveToFolder(fileId: string, folderId: string) {
-  const f = await api(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`,
-  );
+  const f = await api(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`);
   const parents: string[] = f.parents ?? [];
   if (parents.includes(folderId)) return;
   const remove = parents.length ? `&removeParents=${parents.join(',')}` : '';
   await api(
-    `https://www.googleapis.com/drive/v3/files/${fileId}` +
-      `?addParents=${folderId}${remove}`,
+    `https://www.googleapis.com/drive/v3/files/${fileId}` + `?addParents=${folderId}${remove}`,
     { method: 'PATCH', body: '{}' },
   );
 }
@@ -130,8 +120,7 @@ async function findOrCreate(): Promise<string> {
       `mimeType='application/vnd.google-apps.spreadsheet'`,
   );
   const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}` +
-      `&orderBy=createdTime&fields=files(id)`,
+    `https://www.googleapis.com/drive/v3/files?q=${q}` + `&orderBy=createdTime&fields=files(id)`,
   );
   if (found.files?.length) {
     const id = found.files[0].id as string;
@@ -174,9 +163,9 @@ export function ensureSpreadsheet(): Promise<string> {
   return pending;
 }
 
-type Cell = string | number;
+export type SheetCell = string | number;
 
-async function append(tab: string, rows: Cell[][]) {
+export async function appendRows(tab: string, rows: SheetCell[][]) {
   const id = await ensureSpreadsheet();
   const range = encodeURIComponent(`'${tab}'!A1`);
   await api(
@@ -186,58 +175,9 @@ async function append(tab: string, rows: Cell[][]) {
   );
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-const fmtLocal = (ms: number) => {
-  const d = new Date(ms);
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
-    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  );
-};
-const r1 = (n: number) => Math.round(n * 10) / 10;
-
-// Each part is remembered once saved, so a retry never duplicates rows.
-async function once(key: string, fn: () => Promise<void>) {
+// Callers provide stable operation keys so retried writes do not duplicate rows.
+export async function appendRowsOnce(key: string, tab: string, rows: SheetCell[][]) {
   if (done.has(key)) return;
-  await fn();
+  await appendRows(tab, rows);
   done.add(key);
-}
-
-export async function saveWorkout(w: WorkoutSummary, profileId = 'default') {
-  const id = `w_${w.startedAt}`;
-  await once(`${id}:workout`, () =>
-    append('Workouts', [
-      [
-        id,
-        profileId,
-        fmtLocal(w.startedAt),
-        w.durationS,
-        Math.round(w.distanceM),
-        r1(w.avgKmh),
-        r1(w.maxKmh),
-        r1(w.avgInclinePct),
-        w.kcal,
-        w.steps,
-        w.avgHr ?? '',
-        w.maxHr ?? '',
-        w.segments.length,
-      ],
-    ]),
-  );
-  await once(`${id}:segments`, () =>
-    append(
-      'Workout segments',
-      w.segments.map((g, i) => [
-        id,
-        i + 1,
-        g.startS,
-        g.durationS,
-        Math.round(g.distanceM),
-        r1(g.avgKmh),
-        g.paceMinPerKm === null ? '' : Math.round(g.paceMinPerKm * 100) / 100,
-        g.steps,
-        g.kcal,
-      ]),
-    ),
-  );
 }
