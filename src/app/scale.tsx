@@ -1,13 +1,13 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ScrollView, Text, useColorScheme } from 'react-native';
+import { ScrollView } from 'react-native';
+import { Text } from 'react-native-paper';
 import { bleManager } from '../ble/manager';
 import { ScaleReading, startScaleListener } from '../ble/scale';
 
 const HEIGHT_CM = 152; // change to your height
 
 export default function ScalePage() {
-  const fg = useColorScheme() === 'dark' ? '#fff' : '#000';
   const [live, setLive] = useState<ScaleReading | null>(null);
   const [history, setHistory] = useState<ScaleReading[]>([]);
   const [error, setError] = useState('');
@@ -46,24 +46,18 @@ export default function ScalePage() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, gap: 8 }}>
-      <Text style={{ fontSize: 24, fontWeight: '700', color: fg }}>Scale</Text>
+      <Text style={{ fontSize: 24, fontWeight: '700' }}>Scale</Text>
       {!!error && <Text style={{ color: 'red' }}>{error}</Text>}
-      <Text style={{ fontSize: 48, fontWeight: '700', color: fg }}>
+      <Text style={{ fontSize: 48, fontWeight: '700' }}>
         {live ? live.weightKg.toFixed(2) : '--'} kg
       </Text>
-      <Text style={{ color: fg }}>{status}</Text>
-      <Text style={{ color: fg }}>BMI: {bmi ? bmi.toFixed(1) : '--'}</Text>
+      <Text>{status}</Text>
+      <Text>BMI: {bmi ? bmi.toFixed(1) : '--'}</Text>
 
-      <Text
-        style={{ fontSize: 18, fontWeight: '600', marginTop: 16, color: fg }}
-      >
-        This session
-      </Text>
-      {history.length === 0 && (
-        <Text style={{ color: fg }}>No weigh-ins yet</Text>
-      )}
+      <Text style={{ fontSize: 18, fontWeight: '600', marginTop: 16 }}>This session</Text>
+      {history.length === 0 && <Text>No weigh-ins yet</Text>}
       {history.map((h, i) => (
-        <Text key={i} style={{ color: fg }}>
+        <Text key={i}>
           {new Date(h.at).toLocaleTimeString()} {h.weightKg.toFixed(2)} kg
         </Text>
       ))}
