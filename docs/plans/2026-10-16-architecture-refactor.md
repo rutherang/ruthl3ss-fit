@@ -150,13 +150,15 @@ Phase 1 verification: 34 tests pass across 8 suites, TypeScript passes, and lint
 
 ### Phase 2: Integrations and repositories
 
-- [ ] Move BLE manager, permissions, treadmill protocol, and scale protocol modules under `integrations/ble/`; update imports and focused BLE tests.
-- [ ] Split Google Drive folder/file operations from Sheets operations where that makes each integration cohesive.
+- [x] Move BLE manager, permissions, treadmill protocol, and scale protocol modules under `integrations/ble/`; update imports and focused BLE tests.
+- [x] Split Google Drive folder/file operations from Sheets operations: Drive owns folder/file lookup and parent changes; Sheets owns spreadsheet creation and row operations.
 - [ ] Make Sheets generic: ensure the spreadsheet/folder, expose `ensureTab(tab, headers)` to create missing tabs and append missing header columns, and remove the remaining feature-owned tab schemas from the integration. Generic `appendRows` and keyed retry operations are already in place.
 - [x] Add `features/workout/data/workoutRepo.ts`; preserve workout/segment row schema, partial retry behavior, and duplicate protection. Extend tests to cover mapping and retries at the correct layer.
 - [ ] Add feature-owned header definitions and repositories; keep column-to-model mappings in those feature repositories.
 - [ ] Add account-scoped local storage and an offline write queue; test queue isolation by account, retry behavior, and durable idempotency. Before uploading queued workout rows, check for the workout id so process restarts cannot duplicate rows.
 - [ ] Add the BLE scan coordinator and tests proving treadmill and scale scans are mutually exclusive and cleanup cannot stop another screen's scan.
+
+Phase 2 tasks 1-2 verification: 36 tests pass across 9 suites, TypeScript passes, and lint has 0 errors with the existing 13 inline-style warnings. Drive and Sheets operations now use separate integration modules; account sign-out clears both integration caches.
 
 ### Phase 3: Shared account state and screen extraction
 

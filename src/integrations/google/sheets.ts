@@ -1,10 +1,11 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getAccessToken } from './auth';
+import { ensureFolder, findFile, moveToFolder } from './drive';
 
 const SHEET_NAME = 'Ruthl3ssFit';
-const FOLDER_NAME = 'Ruthl3ssFit';
-const FOLDER_MIME = 'application/vnd.google-apps.folder';
-let folderPending: Promise<string> | null = null;
+const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+let pending: Promise<string> | null = null;
+const done = new Set<string>();
 
 // All tabs are created now so later features don't need a migration.
 const TABS: Record<string, string[]> = {
@@ -70,62 +71,12 @@ async function api(url: string, init: RequestInit = {}, retry = true) {
   return res.json();
 }
 
-let pending: Promise<string> | null = null;
-const done = new Set<string>();
-
-export function resetSheetCache() {
-  pending = null;
-  folderPending = null;
-  done.clear();
-}
-
-async function findOrCreateFolder(): Promise<string> {
-  const q = encodeURIComponent(
-    `name='${FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`,
-  );
-  const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}` + `&orderBy=createdTime&fields=files(id)`,
-  );
-  if (found.files?.length) return found.files[0].id as string;
-  const created = await api('https://www.googleapis.com/drive/v3/files?fields=id', {
-    method: 'POST',
-    body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
-  });
-  return created.id as string;
-}
-
-export function ensureFolder(): Promise<string> {
-  folderPending ??= findOrCreateFolder().catch((e) => {
-    folderPending = null;
-    throw e;
-  });
-  return folderPending;
-}
-
-async function moveToFolder(fileId: string, folderId: string) {
-  const f = await api(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`);
-  const parents: string[] = f.parents ?? [];
-  if (parents.includes(folderId)) return;
-  const remove = parents.length ? `&removeParents=${parents.join(',')}` : '';
-  await api(
-    `https://www.googleapis.com/drive/v3/files/${fileId}` + `?addParents=${folderId}${remove}`,
-    { method: 'PATCH', body: '{}' },
-  );
-}
-
 async function findOrCreate(): Promise<string> {
   const folderId = await ensureFolder();
-  const q = encodeURIComponent(
-    `name='${SHEET_NAME}' and trashed=false and ` +
-      `mimeType='application/vnd.google-apps.spreadsheet'`,
-  );
-  const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}` + `&orderBy=createdTime&fields=files(id)`,
-  );
-  if (found.files?.length) {
-    const id = found.files[0].id as string;
-    await moveToFolder(id, folderId); // moves your existing test sheet too
-    return id;
+  const existingId = await findFile(SHEET_NAME, SPREADSHEET_MIME);
+  if (existingId) {
+    await moveToFolder(existingId, folderId); // moves your existing test sheet too
+    return existingId;
   }
 
   const created = await api('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -180,4 +131,9 @@ export async function appendRowsOnce(key: string, tab: string, rows: SheetCell[]
   if (done.has(key)) return;
   await appendRows(tab, rows);
   done.add(key);
+}
+
+export function resetSheetCache() {
+  pending = null;
+  done.clear();
 }
