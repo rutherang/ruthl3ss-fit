@@ -4,21 +4,10 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
 import { Button, ScrollView } from 'react-native';
 import { Device } from 'react-native-ble-plx';
+import { Text } from 'react-native-paper';
 import { bleManager } from '../ble/manager';
-import {
-  MAX_KMH,
-  MIN_KMH,
-  Treadmill,
-  TreadmillData,
-  TreadmillEvent,
-} from '../ble/treadmill';
-import { AppText as Text } from '../components/AppText';
-import {
-  WorkoutRecorder,
-  WorkoutSummary,
-  fmtPace,
-  fmtTime,
-} from '../lib/workoutRecorder';
+import { MAX_KMH, MIN_KMH, Treadmill, TreadmillData, TreadmillEvent } from '../ble/treadmill';
+import { WorkoutRecorder, WorkoutSummary, fmtPace, fmtTime } from '../lib/workoutRecorder';
 
 const HEIGHT_CM = 152; // temporary; will come from the active profile
 const treadmill = new Treadmill(bleManager);
@@ -36,9 +25,7 @@ export default function Home() {
   const recorder = useRef<WorkoutRecorder | null>(null);
   const account = useGoogleAccount();
   const signedIn = useRef(false);
-  const [saveState, setSaveState] = useState<
-    'idle' | 'saving' | 'saved' | 'error'
-  >('idle');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
@@ -59,9 +46,7 @@ export default function Home() {
 
   const addLog = (m: string) => setLog((l) => [...l.slice(-40), m]);
   const run = (p: Promise<unknown>) =>
-    p.catch((e: unknown) =>
-      addLog(`error: ${e instanceof Error ? e.message : String(e)}`),
-    );
+    p.catch((e: unknown) => addLog(`error: ${e instanceof Error ? e.message : String(e)}`));
 
   useEffect(
     () => () => {
@@ -128,38 +113,25 @@ export default function Home() {
     );
 
   const changeSpeed = (delta: number) => {
-    const next = Math.min(
-      MAX_KMH,
-      Math.max(MIN_KMH, +(target + delta).toFixed(1)),
-    );
+    const next = Math.min(MAX_KMH, Math.max(MIN_KMH, +(target + delta).toFixed(1)));
     setTarget(next);
     run(treadmill.setSpeed(next));
   };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, gap: 8 }}>
-      <Text>
-        {account.email ? `Google: ${account.email}` : 'Not signed in to Google'}
-      </Text>
+      <Text>{account.email ? `Google: ${account.email}` : 'Not signed in to Google'}</Text>
       {account.email ? (
         <Button title="Sign out" onPress={account.signOut} />
       ) : (
-        <Button
-          title="Sign in with Google"
-          onPress={account.signIn}
-          disabled={account.busy}
-        />
+        <Button title="Sign in with Google" onPress={account.signIn} disabled={account.busy} />
       )}
       {!!account.error && <Text style={{ color: 'red' }}>{account.error}</Text>}
       {!connected ? (
         <>
           <Button title="Scan for treadmill" onPress={scan} />
           {found.map((d) => (
-            <Button
-              key={d.id}
-              title={`${d.name} (${d.rssi})`}
-              onPress={() => connect(d)}
-            />
+            <Button key={d.id} title={`${d.name} (${d.rssi})`} onPress={() => connect(d)} />
           ))}
         </>
       ) : (
@@ -181,15 +153,8 @@ export default function Home() {
           <Text>Target speed: {target.toFixed(1)} km/h</Text>
           <Button title="Speed +0.5" onPress={() => changeSpeed(0.5)} />
           <Button title="Speed -0.5" onPress={() => changeSpeed(-0.5)} />
-          <Button
-            title="STOP"
-            color="red"
-            onPress={() => run(treadmill.stop())}
-          />
-          <Button
-            title="End workout"
-            onPress={() => run(treadmill.disconnect(true))}
-          />
+          <Button title="STOP" color="red" onPress={() => run(treadmill.stop())} />
+          <Button title="End workout" onPress={() => run(treadmill.disconnect(true))} />
         </>
       )}
 
@@ -197,35 +162,26 @@ export default function Home() {
         <>
           <Text style={{ fontSize: 18, fontWeight: '600' }}>Last workout</Text>
           <Text>
-            {fmtTime(summary.durationS)} ·{' '}
-            {(summary.distanceM / 1000).toFixed(2)} km · ~{summary.steps} steps
-            · {summary.kcal} kcal
+            {fmtTime(summary.durationS)} · {(summary.distanceM / 1000).toFixed(2)} km · ~
+            {summary.steps} steps · {summary.kcal} kcal
           </Text>
           <Text>
-            Avg {summary.avgKmh.toFixed(1)} km/h · max{' '}
-            {summary.maxKmh.toFixed(1)} km/h
+            Avg {summary.avgKmh.toFixed(1)} km/h · max {summary.maxKmh.toFixed(1)} km/h
           </Text>
           {summary.segments.map((g, i) => (
             <Text key={i} style={{ fontSize: 12 }}>
-              #{i + 1} @{fmtTime(g.startS)}: {g.avgKmh.toFixed(1)} km/h for{' '}
-              {fmtTime(g.durationS)}, {g.distanceM.toFixed(0)} m,{' '}
-              {fmtPace(g.paceMinPerKm)}, ~{g.steps} steps
+              #{i + 1} @{fmtTime(g.startS)}: {g.avgKmh.toFixed(1)} km/h for {fmtTime(g.durationS)},{' '}
+              {g.distanceM.toFixed(0)} m, {fmtPace(g.paceMinPerKm)}, ~{g.steps} steps
             </Text>
           ))}
           <Text>
             {saveState === 'saving' && 'Saving to Google Sheets...'}
             {saveState === 'saved' && 'Saved to your Google Sheet ✓'}
             {saveState === 'error' && `Save failed: ${saveError}`}
-            {saveState === 'idle' &&
-              !account.email &&
-              'Sign in to save this workout'}
+            {saveState === 'idle' && !account.email && 'Sign in to save this workout'}
           </Text>
-          {(saveState === 'error' ||
-            (saveState === 'idle' && account.email)) && (
-            <Button
-              title="Save to Google Sheets"
-              onPress={() => save(summary)}
-            />
+          {(saveState === 'error' || (saveState === 'idle' && account.email)) && (
+            <Button title="Save to Google Sheets" onPress={() => save(summary)} />
           )}
         </>
       )}
