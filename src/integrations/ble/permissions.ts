@@ -18,9 +18,7 @@ export async function ensureBlePermissions(
 
   for (const p of perms) onLog(`Permission ${p}: ${res[p]}`);
 
-  const blocked = perms.filter(
-    (p) => res[p] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN,
-  );
+  const blocked = perms.filter((p) => res[p] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN);
   if (blocked.length > 0) {
     throw new Error(
       'Bluetooth permission is blocked. Enable it in Settings → Apps → ' +
@@ -28,9 +26,7 @@ export async function ensureBlePermissions(
     );
   }
 
-  const denied = perms.filter(
-    (p) => res[p] !== PermissionsAndroid.RESULTS.GRANTED,
-  );
+  const denied = perms.filter((p) => res[p] !== PermissionsAndroid.RESULTS.GRANTED);
   if (denied.length > 0) {
     throw new Error(`Bluetooth permission denied: ${denied.join(', ')}`);
   }

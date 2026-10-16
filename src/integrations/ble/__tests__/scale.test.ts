@@ -21,9 +21,7 @@ describe('parseScale', () => {
   });
 
   it('reads an early, still-climbing weight', () => {
-    expect(parseScale(b64('c009188800000a0124d8e72fe10a21'))?.weightKg).toBe(
-      62.8,
-    );
+    expect(parseScale(b64('c009188800000a0124d8e72fe10a21'))?.weightKg).toBe(62.8);
   });
 
   it('rejects bad data', () => {

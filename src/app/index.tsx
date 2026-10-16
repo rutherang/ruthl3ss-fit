@@ -9,8 +9,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, ScrollView } from 'react-native';
 import type { Device } from 'react-native-ble-plx';
 import { Text } from 'react-native-paper';
-import { bleManager } from '../ble/manager';
-import { MAX_KMH, MIN_KMH, Treadmill, TreadmillEvent } from '../ble/treadmill';
+import { bleManager } from '../integrations/ble/manager';
+import { MAX_KMH, MIN_KMH, Treadmill, TreadmillEvent } from '../integrations/ble/treadmill';
 
 const HEIGHT_CM = 152; // temporary; will come from the active profile
 const treadmill = new Treadmill(bleManager);

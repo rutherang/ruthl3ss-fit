@@ -41,9 +41,7 @@ describe('parseTreadmillData', () => {
   });
 
   it('reads an idle treadmill', () => {
-    const d = parseTreadmillData(
-      packet({ kmh: 0, m: 0, incline: 0, kcal: 0, hr: 0, s: 0 }),
-    );
+    const d = parseTreadmillData(packet({ kmh: 0, m: 0, incline: 0, kcal: 0, hr: 0, s: 0 }));
     expect(d.speedKmh).toBe(0);
     expect(d.elapsedS).toBe(0);
   });

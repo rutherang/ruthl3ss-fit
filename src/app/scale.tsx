@@ -3,8 +3,8 @@ import { useCallback, useRef, useState } from 'react';
 import { ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { ScaleReading } from '@/types/scale';
-import { bleManager } from '../ble/manager';
-import { startScaleListener } from '../ble/scale';
+import { bleManager } from '../integrations/ble/manager';
+import { startScaleListener } from '../integrations/ble/scale';
 
 const HEIGHT_CM = 152; // change to your height
 
