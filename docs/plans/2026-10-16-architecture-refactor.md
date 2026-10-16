@@ -139,18 +139,21 @@ src/
 
 ### Phase 1: Shared contracts and pure helpers
 
-- [ ] Introduce only the cross-boundary types needed for moves (`TreadmillData`, `ScaleReading`, `Profile`); keep feature-local types local.
-- [ ] Move `fmtTime` and `fmtPace` to `src/lib/format.ts`, updating imports and tests.
-- [ ] Move workout recorder and step estimation into `features/workout/domain/`; update focused tests and preserve their assertions.
-- [ ] Move the existing `bodyMetrics.ts` into `features/scale/domain/` and retain/add tests for metric calculations.
-- [ ] Move `ageFromBirthDate` into `features/profiles/domain/` (create the file if needed) and test birthday boundary cases.
+- [x] Introduce only the cross-boundary types needed for moves (`TreadmillData`, `ScaleReading`, `Profile`); keep feature-local types local.
+- [x] Move `fmtTime` and `fmtPace` to `src/lib/format.ts`, updating imports and tests.
+- [x] Move workout recorder and step estimation into `features/workout/domain/`; move focused tests beside the domain modules and preserve their assertions.
+- [x] Move the existing `bodyMetrics.ts` into `features/scale/domain/` and add tests for metric classifications/calculations.
+- [x] Move `ageFromBirthDate` into `features/profiles/domain/` and test birthday boundary cases.
+- [x] Move workout row mapping and `WorkoutSummary` use out of the Google Sheets integration into `features/workout/data/workoutRepo.ts`; leave generic row append and keyed retry operations in Sheets as a prerequisite for Phase 2.
+
+Phase 1 verification: 34 tests pass across 8 suites, TypeScript passes, and lint has 0 errors with the same 13 inline-style warnings as the baseline. Prettier check passes for the affected source files.
 
 ### Phase 2: Integrations and repositories
 
 - [ ] Move BLE manager, permissions, treadmill protocol, and scale protocol modules under `integrations/ble/`; update imports and focused BLE tests.
 - [ ] Split Google Drive folder/file operations from Sheets operations where that makes each integration cohesive.
-- [ ] Make Sheets generic: ensure the spreadsheet/folder, expose `ensureTab(tab, headers)` to create missing tabs and append missing header columns, and append rows to a named tab. Remove `WorkoutSummary`, workout row mapping, feature-specific idempotency, and feature schemas from the integration.
-- [ ] Add `features/workout/data/workoutRepo.ts`; preserve workout/segment row schema, partial retry behavior, and duplicate protection. Extend tests to cover mapping and retries at the correct layer.
+- [ ] Make Sheets generic: ensure the spreadsheet/folder, expose `ensureTab(tab, headers)` to create missing tabs and append missing header columns, and remove the remaining feature-owned tab schemas from the integration. Generic `appendRows` and keyed retry operations are already in place.
+- [x] Add `features/workout/data/workoutRepo.ts`; preserve workout/segment row schema, partial retry behavior, and duplicate protection. Extend tests to cover mapping and retries at the correct layer.
 - [ ] Add feature-owned header definitions and repositories; keep column-to-model mappings in those feature repositories.
 - [ ] Add account-scoped local storage and an offline write queue; test queue isolation by account, retry behavior, and durable idempotency. Before uploading queued workout rows, check for the workout id so process restarts cannot duplicate rows.
 - [ ] Add the BLE scan coordinator and tests proving treadmill and scale scans are mutually exclusive and cleanup cannot stop another screen's scan.

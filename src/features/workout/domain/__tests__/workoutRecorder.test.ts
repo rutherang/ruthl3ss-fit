@@ -81,9 +81,7 @@ describe('WorkoutRecorder', () => {
       [300, 6],
     ]);
     const [slow, fast] = rec.summarize()!.segments;
-    expect(fast.steps / fast.distanceM).toBeLessThan(
-      slow.steps / slow.distanceM,
-    );
+    expect(fast.steps / fast.distanceM).toBeLessThan(slow.steps / slow.distanceM);
   });
 
   it('totals the steps of all segments', () => {

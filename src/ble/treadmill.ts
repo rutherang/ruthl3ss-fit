@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import { BleManager, Device, Subscription } from 'react-native-ble-plx';
+import type { TreadmillData } from '@/types/treadmill';
 import { ensureBlePermissions } from './permissions';
 
 const uuid = (s: string) => `0000${s}-0000-1000-8000-00805f9b34fb`;
@@ -9,19 +10,6 @@ const CONTROL_POINT = uuid('2ad9');
 
 export const MIN_KMH = 1.0;
 export const MAX_KMH = 11.0; // raise later once you trust it
-
-export type TreadmillData = {
-  speedKmh?: number; // current belt speed, km/h
-  distanceM?: number; // total distance this session, metres
-  inclinePct?: number; // incline setting, percent
-  kcal?: number; // total calories burned (as reported by the treadmill)
-  heartRate?: number; // beats per minute (only if a sensor is paired)
-  elapsedS?: number; // time since the workout started, seconds
-  remainingS?: number; // time left in a timed program, seconds
-  powerW?: number; // power output, watts (rare on home treadmills)
-  flags?: number; // debug: which fields were present in this packet
-  hex?: string; // debug: raw packet bytes
-};
 
 export function parseTreadmillData(b64: string): TreadmillData {
   const b = Buffer.from(b64, 'base64');
@@ -104,8 +92,7 @@ export function parseTreadmillData(b64: string): TreadmillData {
   return out;
 }
 
-export type TreadmillEvent =
-  'started' | 'paused' | 'stopped' | 'safety-key' | 'other';
+export type TreadmillEvent = 'started' | 'paused' | 'stopped' | 'safety-key' | 'other';
 
 export function parseStatus(b: Buffer): TreadmillEvent {
   switch (b[0]) {
@@ -157,9 +144,7 @@ export class Treadmill {
     });
     setTimeout(() => {
       this.manager.stopDeviceScan();
-      onLog(
-        `BLE scan stopped; ${seen.size} unique device(s), ${foundCount} treadmill match(es)`,
-      );
+      onLog(`BLE scan stopped; ${seen.size} unique device(s), ${foundCount} treadmill match(es)`);
     }, 8000);
   }
 
@@ -259,10 +244,7 @@ export class Treadmill {
   async readInfo(onLog: (m: string) => void) {
     const read = async (service: string, ch: string) => {
       try {
-        const c = await this.device!.readCharacteristicForService(
-          uuid(service),
-          uuid(ch),
-        );
+        const c = await this.device!.readCharacteristicForService(uuid(service), uuid(ch));
         return c.value ? Buffer.from(c.value, 'base64') : null;
       } catch {
         return null;

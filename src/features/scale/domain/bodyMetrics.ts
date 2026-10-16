@@ -1,4 +1,5 @@
-export type Sex = 'male' | 'female';
+import type { Sex } from '@/types/profile';
+
 export type Level = 'low' | 'normal' | 'high' | 'obese';
 export type Person = { sex: Sex; age: number; heightCm: number };
 
@@ -15,15 +16,6 @@ export function fatLevel(pct: number, sex: Sex): Level {
   if (pct < b) return 'normal';
   if (pct < c) return 'high';
   return 'obese';
-}
-
-export function ageFromBirthDate(iso: string, now = new Date()): number {
-  const b = new Date(iso);
-  let age = now.getFullYear() - b.getFullYear();
-  const before =
-    now.getMonth() < b.getMonth() ||
-    (now.getMonth() === b.getMonth() && now.getDate() < b.getDate());
-  return before ? age - 1 : age;
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
