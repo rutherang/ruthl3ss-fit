@@ -12,8 +12,7 @@ export function initAuth() {
   configured = true;
 }
 
-export const currentEmail = () =>
-  GoogleSignin.getCurrentUser()?.user.email ?? null;
+export const currentEmail = () => GoogleSignin.getCurrentUser()?.user.email ?? null;
 
 export async function signInSilently(): Promise<string | null> {
   initAuth();

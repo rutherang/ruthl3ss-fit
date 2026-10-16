@@ -3,7 +3,7 @@ import { fmtPace, fmtTime } from '@/lib/format';
 import { WorkoutRecorder } from '@/features/workout/domain/workoutRecorder';
 import type { WorkoutSummary } from '@/features/workout/domain/workoutRecorder';
 import type { TreadmillData } from '@/types/treadmill';
-import { useGoogleAccount } from '@/google/useAccount';
+import { useGoogleAccount } from '@/integrations/google/useAccount';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
 import { Button, ScrollView } from 'react-native';

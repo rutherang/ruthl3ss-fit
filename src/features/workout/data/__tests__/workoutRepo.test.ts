@@ -1,8 +1,8 @@
 import type { WorkoutSummary } from '@/features/workout/domain/workoutRecorder';
-import { resetSheetCache } from '@/google/sheets';
+import { resetSheetCache } from '@/integrations/google/sheets';
 import { saveWorkout } from '../workoutRepo';
 
-jest.mock('@/google/auth', () => ({
+jest.mock('@/integrations/google/auth', () => ({
   getAccessToken: jest.fn().mockResolvedValue('test-token'),
 }));
 jest.mock('@react-native-google-signin/google-signin', () => ({

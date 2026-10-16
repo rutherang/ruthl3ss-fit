@@ -1,4 +1,4 @@
-import { appendRowsOnce } from '@/google/sheets';
+import { appendRowsOnce } from '@/integrations/google/sheets';
 import type { WorkoutSummary } from '@/features/workout/domain/workoutRecorder';
 
 const pad = (value: number) => String(value).padStart(2, '0');
