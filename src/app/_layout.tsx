@@ -5,6 +5,7 @@ import { MD3DarkTheme, MD3LightTheme, PaperProvider } from 'react-native-paper';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { AccountProvider } from '@/features/account/AccountProvider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,8 +16,10 @@ export default function TabLayout() {
   return (
     <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
       <PaperProvider theme={dark ? MD3DarkTheme : MD3LightTheme}>
-        <AnimatedSplashOverlay />
-        <AppTabs />
+        <AccountProvider>
+          <AnimatedSplashOverlay />
+          <AppTabs />
+        </AccountProvider>
       </PaperProvider>
     </ThemeProvider>
   );
