@@ -45,7 +45,8 @@
           "isBackgroundEnabled": false,
           "bluetoothAlwaysPermission": "Ruthl3ssFit connects to your treadmill over Bluetooth."
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,3 +1,5 @@
+// Android-only API, guarded by the Platform.OS check below.
+// eslint-disable-next-line react-native/split-platform-components
 import { PermissionsAndroid, Platform } from 'react-native';
 
 export async function ensureBlePermissions(
@@ -14,19 +16,20 @@ export async function ensureBlePermissions(
       : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
   const res = await PermissionsAndroid.requestMultiple(perms);
 
-  for (const permission of perms) {
-    onLog(`Permission ${permission}: ${res[permission]}`);
+  for (const p of perms) onLog(`Permission ${p}: ${res[p]}`);
+
+  const blocked = perms.filter(
+    (p) => res[p] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN,
+  );
+  if (blocked.length > 0) {
+    throw new Error(
+      'Bluetooth permission is blocked. Enable it in Settings → Apps → ' +
+        'ruthl3ss-fit → Permissions.',
+    );
   }
 
-  const locationGranted = await PermissionsAndroid.check(
-    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-  );
-  onLog(
-    `Fine location permission: ${locationGranted ? 'granted' : 'not granted'}`,
-  );
-
   const denied = perms.filter(
-    (permission) => res[permission] !== PermissionsAndroid.RESULTS.GRANTED,
+    (p) => res[p] !== PermissionsAndroid.RESULTS.GRANTED,
   );
   if (denied.length > 0) {
     throw new Error(`Bluetooth permission denied: ${denied.join(', ')}`);

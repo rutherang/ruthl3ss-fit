@@ -107,7 +107,7 @@ export function parseTreadmillData(b64: string): TreadmillData {
 export type TreadmillEvent =
   'started' | 'paused' | 'stopped' | 'safety-key' | 'other';
 
-function parseStatus(b: Buffer): TreadmillEvent {
+export function parseStatus(b: Buffer): TreadmillEvent {
   switch (b[0]) {
     case 0x04:
       return 'started';

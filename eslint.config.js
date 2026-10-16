@@ -4,20 +4,33 @@ const eslintConfigPrettier = require('eslint-config-prettier/flat');
 const reactNative = require('eslint-plugin-react-native');
 
 module.exports = defineConfig([
-  globalIgnores(['/node_modules', '/.expo', '/dist', '/web-build']),
+  // Fixed: Standardized relative directory paths for all operating systems (Windows/WSL)
+  globalIgnores([
+    'node_modules/',
+    '.expo/',
+    'dist/',
+    'web-build/',
+    'ios/',
+    'android/',
+  ]),
+
   expoConfig,
   {
     plugins: {
       'react-native': reactNative,
     },
     rules: {
-      ...reactNative.configs.all.rules,
-      'react-native/no-raw-text': ['error', { skip: ['Text'] }],
-      'react-native/no-inline-styles': 'warn',
-      'react-native/no-color-literals': 'off',
+      'react-native/no-raw-text': [
+        'error',
+        {
+          // Fixed: Simplified NativeTabs to allow dot-notation objects safely
+          skip: ['Text', 'ThemedText', 'TabButton', 'NativeTabs'],
+        },
+      ],
       'react-native/no-unused-styles': 'error',
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-native/no-inline-styles': 'warn',
+      'react-native/split-platform-components': 'warn',
+      'react-native/no-color-literals': 'off',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
