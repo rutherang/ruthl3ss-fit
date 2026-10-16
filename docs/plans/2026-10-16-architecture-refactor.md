@@ -130,12 +130,12 @@ src/
 
 ### Phase 0: Baseline and boundary checks
 
-- [ ] Record current test, lint, and type-check results; preserve existing user changes and avoid combining unrelated cleanup.
-- [ ] Add Jest alias mapping now, before moving imports:
+- [x] Record current test, lint, and type-check results; preserve existing user changes and avoid combining unrelated cleanup. Baseline: 26 tests pass; TypeScript passes; lint has 0 errors and 13 inline-style warnings.
+- [x] Add Jest alias mapping now, before moving imports:
       `^@/(.*)$` -> `<rootDir>/src/$1`.
-- [ ] Verify `renderHook` is available from the installed `@testing-library/react-native` for testing `useWorkoutSession` without a screen; add or adjust the SDK-compatible testing dependency only if unavailable.
-- [ ] Add and verify import-boundary lint rules. Confirm a deliberately invalid import is reported, then remove the fixture.
-- [ ] Confirm route re-exports with the installed Expo Router version. Web platform resolution is not a Phase 0 requirement.
+- [x] Verify `renderHook` is available from the installed `@testing-library/react-native` for testing `useWorkoutSession` without a screen; no dependency change was needed.
+- [x] Add and verify import-boundary lint rules. `eslint-import-resolver-typescript` is declared directly and configured for `tsconfig.json`. Five temporary violations were all reported with the expected messages, including both relative and `@/` alias imports; permitted feature-to-integration imports remain allowed. Fixtures were removed.
+- [x] Confirm default route re-exports compile with the current Expo Router/TypeScript setup using a temporary route probe; recheck route discovery when the actual feature routes move. Web platform resolution is not a Phase 0 requirement.
 
 ### Phase 1: Shared contracts and pure helpers
 
