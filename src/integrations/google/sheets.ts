@@ -1,139 +1,167 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { getAccessToken } from './auth';
-import { ensureFolder, findFile, moveToFolder } from './drive';
+import { googleApi } from './api';
+import { ensureFolder, findFile, MIME, moveToFolder, resetDriveCache } from './drive';
 
-const SHEET_NAME = 'Ruthl3ssFit';
-const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
-let pending: Promise<string> | null = null;
-const done = new Set<string>();
+const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
+const APP_NAME = 'Ruthl3ssFit'; // folder and spreadsheet name
 
-// All tabs are created now so later features don't need a migration.
-const TABS: Record<string, string[]> = {
-  Workouts: [
-    'id',
-    'profile_id',
-    'started_at',
-    'duration_s',
-    'distance_m',
-    'avg_kmh',
-    'max_kmh',
-    'avg_incline_pct',
-    'kcal',
-    'steps_est',
-    'avg_hr',
-    'max_hr',
-    'segments',
-  ],
-  'Workout segments': [
-    'workout_id',
-    'seg_no',
-    'start_s',
-    'duration_s',
-    'distance_m',
-    'avg_kmh',
-    'pace_min_per_km',
-    'steps_est',
-    'kcal',
-  ],
-  Profiles: ['id', 'name', 'sex', 'birth_date', 'height_cm', 'created_at'],
-  'Weigh-ins': [
-    'id',
-    'profile_id',
-    'measured_at',
-    'weight_kg',
-    'bmi',
-    'fat_pct',
-    'fat_kg',
-    'water_kg',
-    'muscle_kg',
-    'bone_kg',
-    'bmr_kcal',
-    'formula_version',
-  ],
+export type Cell = string | number;
+export type SheetRecord = Record<string, Cell>;
+
+type SpreadsheetCreated = {
+  spreadsheetId?: string;
+  sheets?: { properties?: { sheetId?: number } }[];
 };
+type SpreadsheetMetadata = {
+  sheets?: { properties?: { sheetId?: number; title?: string } }[];
+};
+type ValuesResponse = { values?: Cell[][] };
 
-async function api(url: string, init: RequestInit = {}, retry = true) {
-  const token = await getAccessToken();
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (res.status === 401 && retry) {
-    await GoogleSignin.clearCachedAccessToken(token); // expired token
-    return api(url, init, false);
-  }
-  if (!res.ok) {
-    throw new Error(`Google ${res.status}: ${(await res.text()).slice(0, 160)}`);
-  }
-  return res.json();
+let spreadsheetPending: Promise<string> | null = null;
+let pristineSheetId: number | null = null; // default tab of a sheet we created
+const tabPending = new Map<string, Promise<string[]>>();
+let tabSetupQueue: Promise<void> = Promise.resolve();
+
+export function resetSheetCache() {
+  spreadsheetPending = null;
+  pristineSheetId = null;
+  tabPending.clear();
+  resetDriveCache();
 }
 
-async function findOrCreate(): Promise<string> {
-  const folderId = await ensureFolder();
-  const existingId = await findFile(SHEET_NAME, SPREADSHEET_MIME);
-  if (existingId) {
-    await moveToFolder(existingId, folderId); // moves your existing test sheet too
-    return existingId;
+async function findOrCreateSpreadsheet(): Promise<string> {
+  const folderId = await ensureFolder(APP_NAME);
+  const existing = await findFile(APP_NAME, MIME.spreadsheet);
+  if (existing) {
+    await moveToFolder(existing, folderId);
+    return existing;
   }
-
-  const created = await api('https://sheets.googleapis.com/v4/spreadsheets', {
+  const created = await googleApi<SpreadsheetCreated>(SHEETS, {
     method: 'POST',
-    body: JSON.stringify({
-      properties: { title: SHEET_NAME },
-      sheets: Object.entries(TABS).map(([title, cols]) => ({
-        properties: { title, gridProperties: { frozenRowCount: 1 } },
-        data: [
-          {
-            startRow: 0,
-            startColumn: 0,
-            rowData: [
-              {
-                values: cols.map((c) => ({
-                  userEnteredValue: { stringValue: c },
-                })),
-              },
-            ],
-          },
-        ],
-      })),
-    }),
+    body: JSON.stringify({ properties: { title: APP_NAME } }),
   });
-  const id = created.spreadsheetId as string;
-  await moveToFolder(id, folderId);
-  return id;
+  pristineSheetId = created.sheets?.[0]?.properties?.sheetId ?? null;
+  if (!created.spreadsheetId) {
+    throw new Error('Google Sheets created a spreadsheet without an ID.');
+  }
+  await moveToFolder(created.spreadsheetId, folderId);
+  return created.spreadsheetId;
 }
 
 export function ensureSpreadsheet(): Promise<string> {
-  pending ??= findOrCreate().catch((e) => {
-    pending = null;
+  spreadsheetPending ??= findOrCreateSpreadsheet().catch((e) => {
+    spreadsheetPending = null;
     throw e;
   });
+  return spreadsheetPending;
+}
+
+const colLetter = (n: number): string => {
+  let s = '';
+  for (; n > 0; n = Math.floor((n - 1) / 26)) {
+    s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  }
+  return s;
+};
+
+async function setupTab(tab: string, headers: string[]): Promise<string[]> {
+  const id = await ensureSpreadsheet();
+  const meta = await googleApi<SpreadsheetMetadata>(
+    `${SHEETS}/${id}?fields=sheets.properties(sheetId,title)`,
+  );
+  if (!Array.isArray(meta.sheets)) {
+    throw new Error('Google Sheets returned no worksheet metadata.');
+  }
+  const tabs = meta.sheets.map(({ properties }) => {
+    if (typeof properties?.sheetId !== 'number' || typeof properties.title !== 'string') {
+      throw new Error('Google Sheets returned invalid worksheet metadata.');
+    }
+    return { sheetId: properties.sheetId, title: properties.title };
+  });
+
+  if (!tabs.some((t) => t.title === tab)) {
+    // A sheet we just created has an empty default tab: reuse it.
+    const reuse = tabs.find((t) => t.sheetId === pristineSheetId);
+    const properties = { title: tab, gridProperties: { frozenRowCount: 1 } };
+    const request = reuse
+      ? {
+          updateSheetProperties: {
+            properties: { sheetId: reuse.sheetId, ...properties },
+            fields: 'title,gridProperties.frozenRowCount',
+          },
+        }
+      : { addSheet: { properties } };
+    await googleApi(`${SHEETS}/${id}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: [request] }),
+    });
+    if (reuse) pristineSheetId = null;
+  }
+
+  const row = await googleApi<ValuesResponse>(
+    `${SHEETS}/${id}/values/${encodeURIComponent(`'${tab}'!1:1`)}`,
+  );
+  const headerRow = row.values?.[0] ?? [];
+  if (!headerRow.every((value): value is string => typeof value === 'string')) {
+    throw new Error(`Google Sheets returned a non-text header row for "${tab}".`);
+  }
+  const current = headerRow;
+  const missing = headers.filter((h) => !current.includes(h));
+  if (missing.length) {
+    const start = encodeURIComponent(`'${tab}'!${colLetter(current.length + 1)}1`);
+    await googleApi(`${SHEETS}/${id}/values/${start}?valueInputOption=RAW`, {
+      method: 'PUT',
+      body: JSON.stringify({ values: [missing] }),
+    });
+  }
+  return [...current, ...missing]; // the sheet's real header order
+}
+
+// Creates the tab if needed, adds missing header columns, and returns the
+// sheet's actual header row. Safe to call on every save.
+export function ensureTab(tab: string, headers: string[]): Promise<string[]> {
+  const inProgress = tabPending.get(tab);
+  if (inProgress) return inProgress;
+
+  const setup = tabSetupQueue.then(() => setupTab(tab, headers));
+  tabSetupQueue = setup.then(
+    () => undefined,
+    () => undefined,
+  );
+  const pending = setup.finally(() => {
+    if (tabPending.get(tab) === pending) tabPending.delete(tab);
+  });
+  tabPending.set(tab, pending);
   return pending;
 }
 
-export type SheetCell = string | number;
-
-export async function appendRows(tab: string, rows: SheetCell[][]) {
+export async function appendRecords(
+  tab: string,
+  headers: string[],
+  records: SheetRecord[],
+): Promise<void> {
+  if (!records.length) return;
+  const actual = await ensureTab(tab, headers);
   const id = await ensureSpreadsheet();
+  const values = records.map((r) => actual.map((h) => r[h] ?? ''));
   const range = encodeURIComponent(`'${tab}'!A1`);
-  await api(
-    `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}` +
-      `:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    { method: 'POST', body: JSON.stringify({ values: rows }) },
+  await googleApi(
+    `${SHEETS}/${id}/values/${range}:append` +
+      `?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    { method: 'POST', body: JSON.stringify({ values }) },
   );
 }
 
-// Callers provide stable operation keys so retried writes do not duplicate rows.
-export async function appendRowsOnce(key: string, tab: string, rows: SheetCell[][]) {
-  if (done.has(key)) return;
-  await appendRows(tab, rows);
-  done.add(key);
-}
-
-export function resetSheetCache() {
-  pending = null;
-  done.clear();
+export async function recordExists(
+  tab: string,
+  headers: string[],
+  keyColumn: string,
+  keyValue: string,
+): Promise<boolean> {
+  const actual = await ensureTab(tab, headers);
+  const column = actual.indexOf(keyColumn);
+  if (column < 0) throw new Error(`Sheet "${tab}" is missing key column "${keyColumn}".`);
+  const id = await ensureSpreadsheet();
+  const range = encodeURIComponent(`'${tab}'!${colLetter(column + 1)}:${colLetter(column + 1)}`);
+  const result = await googleApi<ValuesResponse>(`${SHEETS}/${id}/values/${range}`);
+  return (result.values ?? []).some((row: Cell[]) => String(row[0] ?? '') === keyValue);
 }

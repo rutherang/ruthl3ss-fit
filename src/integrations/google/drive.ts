@@ -1,66 +1,62 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { getAccessToken } from './auth';
+import { googleApi } from './api';
 
-const FOLDER_NAME = 'Ruthl3ssFit';
-const FOLDER_MIME = 'application/vnd.google-apps.folder';
-let folderPending: Promise<string> | null = null;
+const FILES = 'https://www.googleapis.com/drive/v3/files';
 
-async function api(url: string, init: RequestInit = {}, retry = true) {
-  const token = await getAccessToken();
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (res.status === 401 && retry) {
-    await GoogleSignin.clearCachedAccessToken(token);
-    return api(url, init, false);
-  }
-  if (!res.ok) {
-    throw new Error(`Google Drive ${res.status}: ${(await res.text()).slice(0, 160)}`);
-  }
-  return res.json();
-}
+export const MIME = {
+  folder: 'application/vnd.google-apps.folder',
+  spreadsheet: 'application/vnd.google-apps.spreadsheet',
+} as const;
 
-export async function findFile(name: string, mimeType: string): Promise<string | null> {
-  const q = encodeURIComponent(`name='${name}' and mimeType='${mimeType}' and trashed=false`);
-  const found = await api(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime&fields=files(id)`,
-  );
-  return found.files?.[0]?.id ?? null;
-}
+type DriveFileList = { files?: { id: string }[] };
+type DriveFileCreated = { id?: string };
+type DriveFileParents = { parents?: string[] };
 
-async function findOrCreateFolder(): Promise<string> {
-  const folderId = await findFile(FOLDER_NAME, FOLDER_MIME);
-  if (folderId) return folderId;
-  const created = await api('https://www.googleapis.com/drive/v3/files?fields=id', {
-    method: 'POST',
-    body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
-  });
-  return created.id as string;
-}
+const folders = new Map<string, Promise<string>>();
 
 export function resetDriveCache() {
-  folderPending = null;
+  folders.clear();
 }
 
-export function ensureFolder(): Promise<string> {
-  folderPending ??= findOrCreateFolder().catch((e) => {
-    folderPending = null;
-    throw e;
+// Oldest file with this name and type that the app can see.
+export async function findFile(name: string, mimeType: string): Promise<string | null> {
+  const safe = name.replace(/'/g, "\\'");
+  const q = encodeURIComponent(`name='${safe}' and mimeType='${mimeType}' and trashed=false`);
+  const res = await googleApi<DriveFileList>(
+    `${FILES}?q=${q}&orderBy=createdTime&fields=files(id)`,
+  );
+  return res.files?.[0]?.id ?? null;
+}
+
+async function findOrCreateFolder(name: string): Promise<string> {
+  const found = await findFile(name, MIME.folder);
+  if (found) return found;
+  const created = await googleApi<DriveFileCreated>(`${FILES}?fields=id`, {
+    method: 'POST',
+    body: JSON.stringify({ name, mimeType: MIME.folder }),
   });
-  return folderPending;
+  if (!created.id) throw new Error(`Google Drive created folder "${name}" without an ID.`);
+  return created.id;
+}
+
+export function ensureFolder(name: string): Promise<string> {
+  let p = folders.get(name);
+  if (!p) {
+    p = findOrCreateFolder(name).catch((e) => {
+      folders.delete(name);
+      throw e;
+    });
+    folders.set(name, p);
+  }
+  return p;
 }
 
 export async function moveToFolder(fileId: string, folderId: string) {
-  const f = await api(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`);
+  const f = await googleApi<DriveFileParents>(`${FILES}/${fileId}?fields=parents`);
   const parents: string[] = f.parents ?? [];
   if (parents.includes(folderId)) return;
   const remove = parents.length ? `&removeParents=${parents.join(',')}` : '';
-  await api(
-    `https://www.googleapis.com/drive/v3/files/${fileId}` + `?addParents=${folderId}${remove}`,
-    { method: 'PATCH', body: '{}' },
-  );
+  await googleApi(`${FILES}/${fileId}?addParents=${folderId}${remove}`, {
+    method: 'PATCH',
+    body: '{}',
+  });
 }

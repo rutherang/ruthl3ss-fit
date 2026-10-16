@@ -1,92 +1,129 @@
-import type { WorkoutSummary } from '@/features/workout/domain/workoutRecorder';
-import { resetSheetCache } from '@/integrations/google/sheets';
-import { saveWorkout } from '../workoutRepo';
+import { queueSheetAppend } from '@/integrations/google/sheetQueue';
+import type { SheetRecord } from '@/integrations/google/sheets';
+import type { WorkoutSummary } from '../../domain/workoutRecorder';
+import {
+  SEGMENT_HEADERS,
+  SEGMENT_TAB,
+  WORKOUT_HEADERS,
+  WORKOUT_TAB,
+  saveWorkout,
+  segmentRecords,
+  workoutRecord,
+} from '../workoutRepo';
 
-jest.mock('@/integrations/google/auth', () => ({
-  getAccessToken: jest.fn().mockResolvedValue('test-token'),
+jest.mock('@/integrations/google/sheetQueue', () => ({
+  queueSheetAppend: jest.fn(),
 }));
-jest.mock('@react-native-google-signin/google-signin', () => ({
-  GoogleSignin: { clearCachedAccessToken: jest.fn() },
-}));
 
-const ok = (body: unknown = {}) =>
-  Promise.resolve({
-    ok: true,
-    status: 200,
-    json: async () => body,
-    text: async () => '',
-  });
-const fail = () =>
-  Promise.resolve({
-    ok: false,
-    status: 500,
-    json: async () => ({}),
-    text: async () => 'boom',
-  });
+const queue = queueSheetAppend as jest.Mock;
 
-const summary: WorkoutSummary = {
-  startedAt: 1_700_000_000_000,
+// A different startedAt per test keeps their saved-parts memory separate.
+const summary = (startedAt: number): WorkoutSummary => ({
+  startedAt,
   durationS: 600,
-  distanceM: 1000,
+  distanceM: 1000.4,
   steps: 1400,
-  avgKmh: 6,
-  maxKmh: 6,
+  avgKmh: 6.04,
+  maxKmh: 6.5,
   avgInclinePct: 0,
   kcal: 60,
+  avgHr: undefined,
+  maxHr: undefined,
   segments: [
     {
       startS: 1,
       durationS: 600,
-      distanceM: 1000,
+      distanceM: 1000.4,
       steps: 1400,
-      avgKmh: 6,
-      paceMinPerKm: 10,
+      avgKmh: 6.04,
+      paceMinPerKm: 9.9967,
       kcal: 60,
     },
   ],
-};
+});
 
-beforeEach(() => resetSheetCache());
+beforeEach(() => queue.mockReset());
 
-describe('saveWorkout', () => {
-  it('finds the sheet, then appends the workout and its segments', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce(ok({ files: [{ id: 'folder1' }] })) // find folder
-      .mockResolvedValueOnce(ok({ files: [{ id: 'sheet1' }] })) // find sheet
-      .mockResolvedValueOnce(ok({ parents: ['folder1'] })) // sheet is in folder
-      .mockResolvedValueOnce(ok()) // append to Workouts
-      .mockResolvedValueOnce(ok()); // append to Workout segments
-    (global as any).fetch = fetchMock;
-
-    await saveWorkout(summary);
-
-    expect(fetchMock).toHaveBeenCalledTimes(5);
-    expect(fetchMock.mock.calls[0][0]).toContain('mimeType%3D');
-    expect(fetchMock.mock.calls[1][0]).toContain('mimeType%3D');
-    expect(fetchMock.mock.calls[2][0]).toBe(
-      'https://www.googleapis.com/drive/v3/files/sheet1?fields=parents',
-    );
-    const body = JSON.parse(fetchMock.mock.calls[3][1].body);
-    expect(body.values[0][0]).toBe('w_1700000000000');
+describe('record mapping', () => {
+  it('rounds and names the workout columns', () => {
+    const r = workoutRecord(summary(1_700_000_000_000), 'w_1', 'default');
+    expect(r).toMatchObject({
+      id: 'w_1',
+      profile_id: 'default',
+      distance_m: 1000,
+      avg_kmh: 6,
+      max_kmh: 6.5,
+      avg_hr: '',
+      segments: 1,
+    });
+    expect(String(r.started_at)).toMatch(/^2023-11-1[45] \d{2}:\d{2}:\d{2}$/);
   });
 
-  it('retries only the part that failed, without duplicating rows', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce(ok({ files: [{ id: 'folder1' }] })) // find folder
-      .mockResolvedValueOnce(ok({ files: [{ id: 'sheet1' }] })) // find sheet
-      .mockResolvedValueOnce(ok({ parents: ['folder1'] })) // sheet is in folder
-      .mockResolvedValueOnce(ok()) // Workouts saved
-      .mockResolvedValueOnce(fail()) // segments fail
-      .mockResolvedValueOnce(ok()); // segments retry works
-    (global as any).fetch = fetchMock;
+  it('maps every segment with its workout id and number', () => {
+    const [s] = segmentRecords(summary(1_700_000_000_001), 'w_1');
+    expect(s).toMatchObject({
+      workout_id: 'w_1',
+      seg_no: 1,
+      distance_m: 1000,
+      pace_min_per_km: 10,
+    });
+  });
 
-    await expect(saveWorkout(summary)).rejects.toThrow('Google 500');
-    await saveWorkout(summary);
+  it('only uses columns that exist in the headers', () => {
+    const w = workoutRecord(summary(1_700_000_000_002), 'w_1', 'default');
+    const s = segmentRecords(summary(1_700_000_000_002), 'w_1')[0];
+    const unknown = (rec: SheetRecord, headers: string[]) =>
+      Object.keys(rec).filter((k) => !headers.includes(k));
+    expect(unknown(w, WORKOUT_HEADERS)).toEqual([]);
+    expect(unknown(s, SEGMENT_HEADERS)).toEqual([]);
+  });
+});
 
-    // Folder, sheet, and parent checks run once. The workout is saved once,
-    // while the failed segment append is retried.
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+describe('saveWorkout', () => {
+  it('queues account-scoped records with stable operation keys', async () => {
+    queue.mockResolvedValue('saved');
+    const workout = summary(1_700_000_000_010);
+
+    await expect(saveWorkout(workout, '  Athlete@Example.com ')).resolves.toBe('saved');
+
+    expect(queue.mock.calls).toEqual([
+      [
+        'athlete@example.com',
+        'w_1700000000010:workout',
+        expect.objectContaining({ tab: WORKOUT_TAB, idValue: 'w_1700000000010' }),
+      ],
+      [
+        'athlete@example.com',
+        'w_1700000000010:segments',
+        expect.objectContaining({ tab: SEGMENT_TAB, idValue: 'w_1700000000010' }),
+      ],
+    ]);
+  });
+
+  it('keeps a failed operation retryable with the same stable key', async () => {
+    queue
+      .mockResolvedValueOnce('saved')
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce('saved')
+      .mockResolvedValueOnce('saved');
+    const w = summary(1_700_000_000_020);
+
+    await expect(saveWorkout(w, 'one@example.com')).rejects.toThrow('boom');
+    await expect(saveWorkout(w, 'one@example.com')).resolves.toBe('saved');
+
+    expect(queue.mock.calls.map((call) => call[1])).toEqual([
+      'w_1700000000020:workout',
+      'w_1700000000020:segments',
+      'w_1700000000020:workout',
+      'w_1700000000020:segments',
+    ]);
+  });
+
+  it('returns queued when a write is waiting for connectivity', async () => {
+    queue.mockResolvedValueOnce('saved').mockResolvedValueOnce('queued');
+
+    await expect(saveWorkout(summary(1_700_000_000_030), 'one@example.com')).resolves.toBe(
+      'queued',
+    );
   });
 });

@@ -3,7 +3,6 @@ import { useCallback, useRef, useState } from 'react';
 import { ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { ScaleReading } from '@/types/scale';
-import { bleManager } from '../integrations/ble/manager';
 import { startScaleListener } from '../integrations/ble/scale';
 
 const HEIGHT_CM = 152; // change to your height
@@ -18,7 +17,9 @@ export default function ScalePage() {
 
   useFocusEffect(
     useCallback(() => {
-      startScaleListener(bleManager, (r) => {
+      let focused = true;
+      let stopScan: (() => Promise<void>) | undefined;
+      void startScaleListener((r) => {
         setLive(r);
         if (!r.final) {
           sawMeasuring.current = true;
@@ -28,10 +29,23 @@ export default function ScalePage() {
           saved.current = true;
           setHistory((h) => [r, ...h]);
         }
-      }).catch((e) => setError(e.message));
+      })
+        .then((stop) => {
+          if (focused) {
+            stopScan = stop;
+          } else {
+            void stop().catch((e: unknown) => console.error('Unable to stop scale scan', e));
+          }
+        })
+        .catch((e: unknown) => {
+          if (focused) setError(e instanceof Error ? e.message : String(e));
+        });
 
       return () => {
-        bleManager.stopDeviceScan();
+        focused = false;
+        if (stopScan) {
+          void stopScan().catch((e: unknown) => console.error('Unable to stop scale scan', e));
+        }
       };
     }, []),
   );

@@ -2,6 +2,7 @@ import { Buffer } from 'buffer';
 import { BleManager, Device, Subscription } from 'react-native-ble-plx';
 import type { TreadmillData } from '@/types/treadmill';
 import { ensureBlePermissions } from './permissions';
+import { getBleScanCoordinator, type BleScanCoordinator } from './scanCoordinator';
 
 const uuid = (s: string) => `0000${s}-0000-1000-8000-00805f9b34fb`;
 const FTMS = uuid('1826');
@@ -111,7 +112,13 @@ export class Treadmill {
   private device?: Device;
   private subs: Subscription[] = [];
   private onDisconnectCb?: () => void;
-  constructor(private manager: BleManager) {}
+  private scanLease?: () => Promise<void>;
+  private scanTimeout?: ReturnType<typeof setTimeout>;
+  private readonly scanCoordinator: BleScanCoordinator;
+
+  constructor(private manager: BleManager) {
+    this.scanCoordinator = getBleScanCoordinator(manager);
+  }
 
   async scan(onFound: (d: Device) => void, onLog: (m: string) => void) {
     onLog('Preparing treadmill scan');
@@ -122,7 +129,8 @@ export class Treadmill {
     let foundCount = 0;
     let scanErrorLogged = false;
     onLog('BLE scan started; scanning for 8 seconds');
-    this.manager.startDeviceScan(null, null, (err, d) => {
+    this.clearScanTimeout();
+    this.scanLease = await this.scanCoordinator.startScan(null, (err, d) => {
       if (err) {
         if (!scanErrorLogged) {
           scanErrorLogged = true;
@@ -142,9 +150,16 @@ export class Treadmill {
         onFound(d);
       }
     });
-    setTimeout(() => {
-      this.manager.stopDeviceScan();
-      onLog(`BLE scan stopped; ${seen.size} unique device(s), ${foundCount} treadmill match(es)`);
+    this.scanTimeout = setTimeout(() => {
+      void this.stopOwnScan()
+        .then(() => {
+          onLog(
+            `BLE scan stopped; ${seen.size} unique device(s), ${foundCount} treadmill match(es)`,
+          );
+        })
+        .catch((error: unknown) => {
+          onLog(`BLE scan stop error: ${error instanceof Error ? error.message : String(error)}`);
+        });
     }, 8000);
   }
 
@@ -156,7 +171,8 @@ export class Treadmill {
     onStatus: (e: TreadmillEvent) => void = () => {},
   ) {
     let parseErrorShown = false;
-    this.manager.stopDeviceScan();
+    await this.stopOwnScan();
+    await this.scanCoordinator.stopCurrentScan();
     const d = await this.manager.connectToDevice(id);
     await d.discoverAllServicesAndCharacteristics();
     this.device = d;
@@ -229,6 +245,7 @@ export class Treadmill {
   }
 
   async disconnect(stopFirst = false) {
+    await this.stopOwnScan();
     if (stopFirst) {
       try {
         await this.stop();
@@ -278,5 +295,17 @@ export class Treadmill {
     const cb = this.onDisconnectCb;
     this.onDisconnectCb = undefined; // make sure it only fires once
     cb?.();
+  }
+
+  private clearScanTimeout() {
+    if (this.scanTimeout) clearTimeout(this.scanTimeout);
+    this.scanTimeout = undefined;
+  }
+
+  private async stopOwnScan(): Promise<void> {
+    this.clearScanTimeout();
+    const stop = this.scanLease;
+    this.scanLease = undefined;
+    await stop?.();
   }
 }

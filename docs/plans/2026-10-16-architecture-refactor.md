@@ -152,13 +152,13 @@ Phase 1 verification: 34 tests pass across 8 suites, TypeScript passes, and lint
 
 - [x] Move BLE manager, permissions, treadmill protocol, and scale protocol modules under `integrations/ble/`; update imports and focused BLE tests.
 - [x] Split Google Drive folder/file operations from Sheets operations: Drive owns folder/file lookup and parent changes; Sheets owns spreadsheet creation and row operations.
-- [ ] Make Sheets generic: ensure the spreadsheet/folder, expose `ensureTab(tab, headers)` to create missing tabs and append missing header columns, and remove the remaining feature-owned tab schemas from the integration. Generic `appendRows` and keyed retry operations are already in place.
+- [x] Make Sheets generic: ensure the spreadsheet/folder, expose `ensureTab(tab, headers)` to create missing tabs and append missing header columns, and remove the remaining feature-owned tab schemas from the integration. Generic `appendRecords` aligns feature-owned records to the sheet's actual header order.
 - [x] Add `features/workout/data/workoutRepo.ts`; preserve workout/segment row schema, partial retry behavior, and duplicate protection. Extend tests to cover mapping and retries at the correct layer.
-- [ ] Add feature-owned header definitions and repositories; keep column-to-model mappings in those feature repositories.
-- [ ] Add account-scoped local storage and an offline write queue; test queue isolation by account, retry behavior, and durable idempotency. Before uploading queued workout rows, check for the workout id so process restarts cannot duplicate rows.
-- [ ] Add the BLE scan coordinator and tests proving treadmill and scale scans are mutually exclusive and cleanup cannot stop another screen's scan.
+- [x] Keep sheet headers and row mappings in the workout repository; add feature-owned schemas/repositories when their data workflows are implemented.
+- [x] Add a SQLite-backed account-scoped outbox and offline write queue; test account isolation and retry behavior. Check workout/segment IDs in Sheets before upload so a process restart cannot duplicate rows.
+- [x] Add a BLE scan coordinator and tests proving treadmill and scale scans are mutually exclusive and stale screen cleanup cannot stop another screen's scan.
 
-Phase 2 tasks 1-2 verification: 36 tests pass across 9 suites, TypeScript passes, and lint has 0 errors with the existing 13 inline-style warnings. Drive and Sheets operations now use separate integration modules; account sign-out clears both integration caches.
+Phase 2 verification: BLE and Google Drive/Sheets integrations are separated; Sheets creates tabs and appends missing headers lazily, then aligns records to the persisted header order. Workout writes are persisted in an account-scoped SQLite outbox, retried on app activation/network restoration, and checked against remote IDs before append. The BLE coordinator serializes scans and provides lease-scoped cleanup. All 55 tests pass across 14 suites, TypeScript passes, Prettier passes, and lint has 0 errors with the baseline 13 inline-style warnings.
 
 ### Phase 3: Shared account state and screen extraction
 

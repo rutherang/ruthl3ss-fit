@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
-import { BleManager } from 'react-native-ble-plx';
 import type { ScaleReading } from '@/types/scale';
 import { ensureBlePermissions } from './permissions';
+import { getBleScanCoordinator } from './scanCoordinator';
 
 export const SCALE_ID = 'D8:E7:2F:E1:0A:21';
 
@@ -18,13 +18,13 @@ export function parseScale(b64?: string | null): ScaleReading | null {
 }
 
 export async function startScaleListener(
-  manager: BleManager,
   onReading: (r: ScaleReading) => void,
-) {
+): Promise<() => Promise<void>> {
   await ensureBlePermissions();
-  manager.startDeviceScan(null, { allowDuplicates: true }, (err, d) => {
+  const { bleManager } = await import('./manager');
+  return getBleScanCoordinator(bleManager).startScan({ allowDuplicates: true }, (err, d) => {
     if (err || !d || d.id !== SCALE_ID) return;
-    const r = parseScale(d.manufacturerData);
-    if (r) onReading(r);
+    const reading = parseScale(d.manufacturerData);
+    if (reading) onReading(reading);
   });
 }
