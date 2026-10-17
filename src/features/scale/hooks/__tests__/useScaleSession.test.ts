@@ -23,7 +23,13 @@ async function setup(active = true) {
   const f = fakeListen();
   const hook = await renderHook(
     (p: { active: boolean }) =>
-      useScaleSession({ active: p.active, listen: f.listen, heightCm: 152 }),
+      useScaleSession({
+        active: p.active,
+        listen: f.listen,
+        heightCm: 152,
+        age: 25,
+        sex: 'male',
+      }),
     { initialProps: { active } },
   );
   return { ...hook, ...f };
@@ -40,6 +46,26 @@ describe('useScaleSession', () => {
   it('does not listen while inactive', async () => {
     const { listen } = await setup(false);
     expect(listen).not.toHaveBeenCalled();
+  });
+
+  it('updates scale metrics when profile measurements change without restarting BLE', async () => {
+    const f = fakeListen();
+    const hook = await renderHook(
+      (p: { heightCm: number; age: number; sex: 'male' | 'female' }) =>
+        useScaleSession({ active: true, listen: f.listen, ...p }),
+      { initialProps: { heightCm: 152, age: 25, sex: 'male' as const } },
+    );
+
+    await act(async () => f.send(reading(62.9, false)));
+    const initialBmi = hook.result.current.bmi;
+    const initialFat = hook.result.current.fatPct;
+
+    await hook.rerender({ heightCm: 168, age: 58, sex: 'female' });
+
+    expect(hook.result.current.bmi).not.toBe(initialBmi);
+    expect(hook.result.current.fatPct).not.toBe(initialFat);
+    expect(f.listen).toHaveBeenCalledTimes(1);
+    expect(f.stop).not.toHaveBeenCalled();
   });
 
   it('records a weigh-in once it has watched the weight settle', async () => {
@@ -88,7 +114,7 @@ describe('useScaleSession', () => {
   it('shows an error when listening fails', async () => {
     const listen: ScaleListen = jest.fn().mockRejectedValue(new Error('no bluetooth'));
     const { result } = await renderHook(() =>
-      useScaleSession({ active: true, listen, heightCm: 152 }),
+      useScaleSession({ active: true, listen, heightCm: 152, age: 25, sex: 'male' }),
     );
     await act(async () => {});
     expect(result.current.error).toBe('no bluetooth');

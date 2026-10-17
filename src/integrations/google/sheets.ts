@@ -151,6 +151,41 @@ export async function appendRecords(
   );
 }
 
+export async function upsertRecord(
+  tab: string,
+  headers: string[],
+  record: SheetRecord,
+  keyColumn: string,
+  keyValue: string,
+): Promise<void> {
+  if (!headers.includes(keyColumn)) {
+    throw new Error(`Sheet "${tab}" does not define key column "${keyColumn}".`);
+  }
+
+  const actual = await ensureTab(tab, headers);
+  const keyIndex = actual.indexOf(keyColumn);
+  const id = await ensureSpreadsheet();
+  const keyLetter = colLetter(keyIndex + 1);
+  const keyRange = encodeURIComponent(`'${tab}'!${keyLetter}2:${keyLetter}`);
+  const result = await googleApi<ValuesResponse>(`${SHEETS}/${id}/values/${keyRange}`);
+  const rowIndex = (result.values ?? []).findIndex((row) => String(row[0] ?? '') === keyValue);
+  const values = actual.map((header) => record[header] ?? '');
+
+  if (rowIndex < 0) {
+    await appendRecords(tab, headers, [record]);
+    return;
+  }
+
+  const rowNumber = rowIndex + 2;
+  const range = encodeURIComponent(
+    `'${tab}'!A${rowNumber}:${colLetter(actual.length)}${rowNumber}`,
+  );
+  await googleApi(`${SHEETS}/${id}/values/${range}?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    body: JSON.stringify({ values: [values] }),
+  });
+}
+
 export async function recordExists(
   tab: string,
   headers: string[],
