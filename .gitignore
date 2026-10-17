@@ -1,6 +1,4 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# Dependencies
 node_modules/
 
 # Expo
@@ -9,61 +7,54 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Generated native projects (EAS builds these in the cloud)
+/android
+/ios
 .kotlin/
 *.orig.*
+
+# Build outputs downloaded from EAS
+*.apk
+*.aab
+*.ipa
+
+# Signing keys and credentials
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
+credentials.json
+client_secret*.json
+
+# Environment files (keep real values out of git)
+.env
+.env.*
+!.env.example
 
 # Metro
 .metro-health-check*
 
-# debug
+# TypeScript
+*.tsbuildinfo
+
+# Logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# Test output
+coverage/
+
+# OS files
 .DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-example
-
-# generated native folders
-/ios
-/android
-
-# plain env files (yours only ignores .env*.local)
-.env
-
-# build outputs downloaded from EAS
-*.apk
-*.aab
-*.ipa
-
-# EAS credentials, if you ever download them
-credentials.json
-
-# Windows
-Thumbs.db# plain env files (yours only ignores .env*.local)
-.env
-
-# build outputs downloaded from EAS
-*.apk
-*.aab
-*.ipa
-
-# EAS credentials, if you ever download them
-credentials.json
-
-# Windows
 Thumbs.db
+
+# Editors
+.idea/
+
+# Local assistant settings
+.claude/settings.local.json
+CLAUDE.local.md
