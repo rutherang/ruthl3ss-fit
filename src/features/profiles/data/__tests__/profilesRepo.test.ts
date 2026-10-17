@@ -5,7 +5,6 @@ const mockSaveCachedProfile = jest.fn();
 const mockQueueSheetUpsert = jest.fn();
 
 jest.mock('@/integrations/storage/profiles', () => ({
-  getProfile: jest.fn(),
   getProfiles: jest.fn(),
   saveProfile: (...args: unknown[]) => mockSaveCachedProfile(...args),
 }));

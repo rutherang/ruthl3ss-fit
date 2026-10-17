@@ -1,9 +1,9 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-export const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
 let configured = false;
 
-export function initAuth() {
+function initAuth() {
   if (configured) return;
   GoogleSignin.configure({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -12,7 +12,7 @@ export function initAuth() {
   configured = true;
 }
 
-export const currentEmail = () => GoogleSignin.getCurrentUser()?.user.email ?? null;
+const currentEmail = () => GoogleSignin.getCurrentUser()?.user.email ?? null;
 
 export async function signInSilently(): Promise<string | null> {
   initAuth();

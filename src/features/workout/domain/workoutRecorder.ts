@@ -10,7 +10,7 @@ type Sample = {
   hr: number;
 };
 
-export type Segment = {
+type Segment = {
   startS: number;
   durationS: number;
   distanceM: number;

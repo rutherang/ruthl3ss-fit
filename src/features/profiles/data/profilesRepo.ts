@@ -2,23 +2,14 @@ import { fmtDateTime } from '@/lib/format';
 import type { SheetRecord } from '@/integrations/google/sheets';
 import { flushPendingSheetWrites, queueSheetUpsert } from '@/integrations/google/sheetQueue';
 import {
-  getProfile as getCachedProfile,
   getProfiles as getCachedProfiles,
   saveProfile as saveCachedProfile,
 } from '@/integrations/storage/profiles';
 import type { Profile } from '@/types/profile';
 import { validateProfileInput, type ProfileInput } from '../domain/profileValidation';
 
-export const PROFILES_TAB = 'Profiles';
-export const PROFILES_HEADERS = [
-  'id',
-  'name',
-  'sex',
-  'birthDate',
-  'heightCm',
-  'createdAt',
-  'photoFileId',
-];
+const PROFILES_TAB = 'Profiles';
+const PROFILES_HEADERS = ['id', 'name', 'sex', 'birthDate', 'heightCm', 'createdAt', 'photoFileId'];
 
 export type ProfileSaveResult = {
   profile: Profile;
@@ -44,10 +35,6 @@ export function profileRecord(profile: Profile): SheetRecord {
 
 export function getProfiles(accountId: string): Promise<Profile[]> {
   return getCachedProfiles(normalizeAccount(accountId));
-}
-
-export function getProfile(accountId: string, profileId: string): Promise<Profile | null> {
-  return getCachedProfile(normalizeAccount(accountId), profileId);
 }
 
 export async function saveProfile(

@@ -4,7 +4,7 @@ import type { Sex } from '@/types/profile';
 import { computeMetrics } from '../domain/bodyMetrics';
 
 // Starts listening and resolves with a function that stops it.
-export type ScaleStop = () => void | Promise<void>;
+type ScaleStop = () => void | Promise<void>;
 export type ScaleListen = (onReading: (r: ScaleReading) => void) => Promise<ScaleStop>;
 
 type Deps = {

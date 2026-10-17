@@ -3,7 +3,7 @@ import type { ScaleReading } from '@/types/scale';
 import { ensureBlePermissions } from './permissions';
 import { getBleScanCoordinator } from './scanCoordinator';
 
-export const SCALE_ID = 'D8:E7:2F:E1:0A:21';
+const SCALE_ID = 'D8:E7:2F:E1:0A:21';
 
 export function parseScale(b64?: string | null): ScaleReading | null {
   if (!b64) return null;

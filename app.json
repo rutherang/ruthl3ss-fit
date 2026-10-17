@@ -3,6 +3,7 @@
     "name": "ruthl3ss-fit",
     "slug": "ruthl3ssfit",
     "version": "1.0.0",
+    "platforms": ["ios", "android"],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ruthl3ssfit",
@@ -20,10 +21,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "ACCESS_FINE_LOCATION"]
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",

@@ -4,7 +4,7 @@ import { ensureFolder, findFile, MIME, moveToFolder, resetDriveCache } from './d
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 const APP_NAME = 'Ruthl3ssFit'; // folder and spreadsheet name
 
-export type Cell = string | number;
+type Cell = string | number;
 export type SheetRecord = Record<string, Cell>;
 
 type SpreadsheetCreated = {
@@ -47,7 +47,7 @@ async function findOrCreateSpreadsheet(): Promise<string> {
   return created.spreadsheetId;
 }
 
-export function ensureSpreadsheet(): Promise<string> {
+function ensureSpreadsheet(): Promise<string> {
   spreadsheetPending ??= findOrCreateSpreadsheet().catch((e) => {
     spreadsheetPending = null;
     throw e;
