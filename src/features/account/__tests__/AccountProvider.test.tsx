@@ -1,7 +1,7 @@
-import { act, renderHook, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 import * as auth from '@/integrations/google/auth';
 import { resetSheetCache } from '@/integrations/google/sheets';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { AccountProvider } from '../AccountProvider';
 import { useAccount } from '../useAccount';
 
@@ -95,5 +95,26 @@ describe('AccountProvider', () => {
     expect(result.current.a.error).toBe('sign-out failed');
     expect(result.current.a.busy).toBe(false);
     expect(resetSheetCache).not.toHaveBeenCalled();
+  });
+
+  it('is ready after the silent sign-in and stays ready while signing in', async () => {
+    let finish!: (email: string) => void;
+    mocked.signInSilently.mockResolvedValue(null);
+    mocked.signIn.mockReturnValue(new Promise((r) => (finish = r)));
+    const { result } = await setup();
+    expect(result.current.a.ready).toBe(true);
+
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.a.signIn();
+    });
+    expect(result.current.a.busy).toBe(true);
+    expect(result.current.a.ready).toBe(true);
+
+    await act(async () => {
+      finish('me@example.com');
+      await pending;
+    });
+    expect(result.current.a.email).toBe('me@example.com');
   });
 });
